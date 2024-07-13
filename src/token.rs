@@ -1,16 +1,24 @@
 #![allow(dead_code)]
-type TokenType = str;
 
-pub struct Token<'a> {
-    pub type_f: &'a TokenType,
-    pub literal: &'a str,
+pub type TokenType = String;
+
+#[derive(Clone, Debug)]
+pub struct Token {
+    pub type_f: TokenType,
+    pub literal: String,
 }
 
-impl<'a> Token<'a> {
-    pub fn new(token_t: &'a TokenType, ch: &'a str) -> Token<'a>{
-        Token{
-            type_f: token_t,
-            literal: ch
+impl Token {
+    pub fn new(token_t: &str, ch: &str) -> Self {
+        Self {
+            type_f: token_t.to_string(),
+            literal: ch.to_string(),
+        }
+    }
+    pub fn new_empty() -> Self {
+        Self {
+            type_f: "".to_string(),
+            literal: "".to_string(),
         }
     }
 }
@@ -25,10 +33,10 @@ pub const INT: &str = "INT";
 // Operators
 pub const ASSIGN: &str = "=";
 pub const PLUS: &str = "+";
-pub const MINUS: &str= "-";
-pub const BANG: &str= "!";
-pub const ASTERISK: &str= "*";
-pub const SLASH: &str= "/";
+pub const MINUS: &str = "-";
+pub const BANG: &str = "!";
+pub const ASTERISK: &str = "*";
+pub const SLASH: &str = "/";
 pub const LT: &str = "<";
 pub const GT: &str = ">";
 
@@ -51,31 +59,31 @@ pub const IF: &str = "IF";
 pub const ELSE: &str = "ELSE";
 pub const RETURN: &str = "RETURN";
 
-pub const KEYWORDS:[(&str,&str);7] = [
-    ("fn",FUNCTION),
-    ("let",LET),
-    ("true",TRUE),
-    ("false",FALSE),
-    ("if",IF),
-    ("else",ELSE),
-    ("return",RETURN),
+pub const KEYWORDS: [(&str, &str); 7] = [
+    ("fn", FUNCTION),
+    ("let", LET),
+    ("true", TRUE),
+    ("false", FALSE),
+    ("if", IF),
+    ("else", ELSE),
+    ("return", RETURN),
 ];
 
-pub fn lookup_identifier(ident: &str)-> &str{
-    for kw in KEYWORDS{
-        if ident == kw.0{
+pub fn lookup_identifier(ident: &str) -> &str {
+    for kw in KEYWORDS {
+        if ident == kw.0 {
             return kw.1;
         }
     }
     return IDENT;
 }
 
-mod tests{
-    use crate::token::{lookup_identifier, FUNCTION, LET};
+#[cfg(test)]
+mod tests {
     #[test]
-    fn test_lookup_ident(){
-        assert_eq!(FUNCTION,lookup_identifier("fn"));
-        assert_eq!(LET,lookup_identifier("let"));
+    fn test_lookup_ident() {
+        use crate::token::{lookup_identifier, FUNCTION, LET};
+        assert_eq!(FUNCTION, lookup_identifier("fn"));
+        assert_eq!(LET, lookup_identifier("let"));
     }
-
 }
