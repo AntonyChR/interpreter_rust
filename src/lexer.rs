@@ -3,6 +3,7 @@
 use crate::token::*;
 use crate::utils::*;
 
+#[derive(Copy, Clone)]
 pub struct Lexer<'a> {
     input: &'a str,
     position: usize,
@@ -16,9 +17,9 @@ impl<'a> Lexer<'a> {
             input,
             position: 0,
             read_position: 0,
-            ch: "",          
+            ch: "",
         };
-        lexer.read_char(); //read first char 
+        lexer.read_char(); //read first char
         lexer
     }
 
@@ -32,107 +33,98 @@ impl<'a> Lexer<'a> {
         self.read_position = self.read_position + 1;
     }
 
-    pub fn read_identifier(&mut self) -> &str{
-        let position :usize = self.position;
+    pub fn read_identifier(&mut self) -> String {
+        let position: usize = self.position;
         while is_letter(self.ch) {
-            self.read_char(); 
+            self.read_char();
         }
-
-        return &self.input[position..self.position];
+        return self.input[position..self.position].to_string();
     }
 
-    pub fn skip_white_space(&mut self){
+    pub fn skip_white_space(&mut self) {
         while let Some(ch) = self.ch.chars().next() {
             if !matches!(ch, ' ' | '\t' | '\n' | '\r') {
                 break;
             }
             self.read_char();
         }
-   }
+    }
 
-    pub fn read_number(&mut self)->&str{
-        let position = self.position;
+    pub fn read_number(&mut self) -> String {
+        let position: usize = self.position;
         while is_digit(&self.ch) {
-            self.read_char();            
+            self.read_char();
         }
-        return &self.input[position..self.position];
+        return self.input[position..self.position].to_string();
     }
 
-    pub fn peek_char(&self) -> &'a str{
-        if self.read_position >= self.input.len(){
+    pub fn peek_char(&self) -> &'a str {
+        if self.read_position >= self.input.len() {
             return "";
-        }else{
-            return &self.input[self.read_position..self.read_position+1];
-        } 
+        } else {
+            return &self.input[self.read_position..self.read_position + 1];
+        }
     }
 
-    pub fn next_token(&mut self) -> Token{
-        let tok: Token;
+    pub fn next_token(&mut self) -> Token {
+        let token: Token;
         self.skip_white_space();
 
         match self.ch {
-            "=" =>{
+            "=" => {
                 if self.peek_char() == "=" {
-                    //let ch = self.ch;
                     self.read_char();
-                    //let literal = format!("{}{}",ch, self.ch);
-                    //let literal = [ch, self.ch].join("");
-                    //tok = Token::new(EQ,literal); 
-                    tok = Token::new(EQ, "==");
-                }else{
-                    tok = Token::new(ASSIGN, self.ch);
+                    token = Token::new(EQ, "==");
+                } else {
+                    token = Token::new(ASSIGN, self.ch);
                 }
-            },
+            }
             "!" => {
                 if self.peek_char() == "=" {
-                    //let ch = self.ch;
                     self.read_char();
-                    //let literal = format!("{}{}",ch, self.ch);
-                    //let literal = [ch, self.ch].join("");
-                    //tok = Token::new(NOT_EQ, literal);
-                    tok = Token::new(NOT_EQ, "!=");
-                }else{
-                    tok = Token::new(BANG, self.ch)
+                    token = Token::new(NOT_EQ, "!=");
+                } else {
+                    token = Token::new(BANG, self.ch)
                 }
-            },
-           "+" => tok = Token::new(PLUS, self.ch),
-           "-" => tok = Token::new(MINUS, self.ch),
-           "/" => tok = Token::new(SLASH, self.ch),
-           "*" => tok = Token::new(ASTERISK, self.ch),
-           "<" => tok = Token::new(LT, self.ch),
-           ">" => tok = Token::new(GT, self.ch),
-           ";" => tok = Token::new(SEMICOLON, self.ch),
-           "," => tok = Token::new(COMMA, self.ch),
-           "(" => tok = Token::new(LPAREN, self.ch),
-           ")" => tok = Token::new(RPAREN, self.ch),
-           "{" => tok = Token::new(LBRACE, self.ch),
-           "}" => tok = Token::new(RBRACE, self.ch),
-           "" => tok = Token::new(EOF, ""),
-           _ => {
-               if is_letter(self.ch) {
-                   let literal = self.read_identifier();
-                   tok = Token::new(lookup_identifier(literal),literal );
-                   return tok;
-               }else if is_digit(self.ch){
-                   tok = Token::new(INT, self.read_number());
-                   return tok;
-               }else{
-                   return Token::new(ILLEGAL, &self.ch);
-               }
-           } 
+            }
+            "+" => token = Token::new(PLUS, self.ch),
+            "-" => token = Token::new(MINUS, self.ch),
+            "/" => token = Token::new(SLASH, self.ch),
+            "*" => token = Token::new(ASTERISK, self.ch),
+            "<" => token = Token::new(LT, self.ch),
+            ">" => token = Token::new(GT, self.ch),
+            ";" => token = Token::new(SEMICOLON, self.ch),
+            "," => token = Token::new(COMMA, self.ch),
+            "(" => token = Token::new(LPAREN, self.ch),
+            ")" => token = Token::new(RPAREN, self.ch),
+            "{" => token = Token::new(LBRACE, self.ch),
+            "}" => token = Token::new(RBRACE, self.ch),
+            "" => token = Token::new(EOF, ""),
+            _ => {
+                if is_letter(self.ch) {
+                    let literal = self.read_identifier();
+                    token = Token::new(lookup_identifier(&literal), &literal);
+                    return token;
+                } else if is_digit(self.ch) {
+                    token = Token::new(INT, &self.read_number());
+                    return token;
+                } else {
+                    return Token::new(ILLEGAL, &self.ch);
+                }
+            }
         }
-
         self.read_char();
-        return tok; 
+        return token;
     }
-
 }
 
+#[cfg(test)]
 mod tests {
-    use crate::token::*;
-    use crate::lexer::*;
     #[test]
+
     fn test_next_token() {
+        use crate::lexer::*;
+
         let input = "
         let five = 5;
         let ten = 10;
@@ -155,24 +147,22 @@ mod tests {
         10 != 9;
         ";
 
-        let tests = [
+        let expected = [
             //(expected type, expected literal)
             (LET, "let"),
             (IDENT, "five"),
             (ASSIGN, "="),
             (INT, "5"),
             (SEMICOLON, ";"),
-
             (LET, "let"),
             (IDENT, "ten"),
             (ASSIGN, "="),
             (INT, "10"),
             (SEMICOLON, ";"),
-
-            (LET,"let"),
-            (IDENT,"add"),
-            (ASSIGN,"="),
-            (FUNCTION,"fn"),
+            (LET, "let"),
+            (IDENT, "add"),
+            (ASSIGN, "="),
+            (FUNCTION, "fn"),
             (LPAREN, "("),
             (IDENT, "x"),
             (COMMA, ","),
@@ -185,7 +175,6 @@ mod tests {
             (SEMICOLON, ";"),
             (RBRACE, "}"),
             (SEMICOLON, ";"),
-
             (LET, "let"),
             (IDENT, "result"),
             (ASSIGN, "="),
@@ -196,57 +185,55 @@ mod tests {
             (IDENT, "ten"),
             (RPAREN, ")"),
             (SEMICOLON, ";"),
-
-            (BANG,"!"),
-            (MINUS,"-"),
-            (SLASH,"/"),
-            (ASTERISK,"*"),
-            (INT,"5"),
-            (SEMICOLON,";"),
-
-            (INT,"5"),
-            (LT,"<"),
-            (INT,"10"),
-            (GT,">"),
-            (INT,"5"),
-            (SEMICOLON,";"),
-
-            (IF,"if"),
-            (LPAREN,"("),
-            (INT,"5"),
-            (LT,"<"),
-            (INT,"10"),
-            (RPAREN,")"),
-            (LBRACE,"{"),
-            (RETURN,"return"),
-            (TRUE,"true"),
-            (SEMICOLON,";"),
-            (RBRACE,"}"),
-            (ELSE,"else"),
-            (LBRACE,"{"),
-            (RETURN,"return"),
-            (FALSE,"false"),
-            (SEMICOLON,";"),
-            (RBRACE,"}"),
-
+            (BANG, "!"),
+            (MINUS, "-"),
+            (SLASH, "/"),
+            (ASTERISK, "*"),
+            (INT, "5"),
+            (SEMICOLON, ";"),
+            (INT, "5"),
+            (LT, "<"),
+            (INT, "10"),
+            (GT, ">"),
+            (INT, "5"),
+            (SEMICOLON, ";"),
+            (IF, "if"),
+            (LPAREN, "("),
+            (INT, "5"),
+            (LT, "<"),
+            (INT, "10"),
+            (RPAREN, ")"),
+            (LBRACE, "{"),
+            (RETURN, "return"),
+            (TRUE, "true"),
+            (SEMICOLON, ";"),
+            (RBRACE, "}"),
+            (ELSE, "else"),
+            (LBRACE, "{"),
+            (RETURN, "return"),
+            (FALSE, "false"),
+            (SEMICOLON, ";"),
+            (RBRACE, "}"),
             (INT, "10"),
             (EQ, "=="),
             (INT, "10"),
-            (SEMICOLON,";"),
-
+            (SEMICOLON, ";"),
             (INT, "10"),
             (NOT_EQ, "!="),
             (INT, "9"),
-            (SEMICOLON,";"),
-
+            (SEMICOLON, ";"),
             (EOF, ""),
-            ];
+        ];
 
         let mut lexer = Lexer::new(input);
-        for i in 0..tests.len(){
+        for i in 0..expected.len() {
             let token = lexer.next_token();
-            assert_eq!(token.type_f, tests[i].0, "incorrect token type: {}",i);
-            assert_eq!(token.literal, tests[i].1, "incorrect token litera: {}",i);
+            assert_eq!(token.type_f, expected[i].0, "incorrect token type: {}", i);
+            assert_eq!(
+                token.literal, expected[i].1,
+                "incorrect token literal: {}",
+                i
+            );
         }
     }
 }
