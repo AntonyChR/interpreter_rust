@@ -1,10 +1,10 @@
+mod ast;
 mod lexer;
+mod parser;
+mod repl;
 mod token;
 mod utils;
-mod repl;
 
 fn main() {
     repl::start();
 }
-
-
