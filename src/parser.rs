@@ -15,7 +15,8 @@ impl<'a> Parser<'a> {
     pub fn new(lexer: lexer::Lexer<'a>) -> Self {
         let mut p: Parser<'_> = Parser {
             lexer,
-            current_token: token::Token::new_empty(), peek_token: token::Token::new_empty(),
+            current_token: token::Token::new_empty(),
+            peek_token: token::Token::new_empty(),
             errors: Vec::new(),
         };
 
@@ -37,6 +38,12 @@ impl<'a> Parser<'a> {
                 Some(value) => Some(value),
                 None => None,
             },
+
+            token::RETURN => match self.parse_return_statement() {
+                Some(value) => Some(value),
+                None => None,
+            },
+
             _ => return None,
         }
     }
@@ -79,11 +86,21 @@ impl<'a> Parser<'a> {
             return None;
         }
 
-        
         while !self.current_token_is(token::SEMICOLON.to_string()) {
             self.next_token();
         }
         Some(statement)
+    }
+
+    fn parse_return_statement(&mut self) -> Option<ast::TStatement> {
+        let statement: Box<ast::ReturnStatement> = Box::new(ast::ReturnStatement {
+            token: self.current_token.clone(),
+        });
+        self.next_token();
+        while !self.current_token_is(token::SEMICOLON.to_string()) {
+            self.next_token();
+        }
+        return Some(statement);
     }
 
     fn current_token_is(&self, token_type: token::TokenType) -> bool {
@@ -108,13 +125,13 @@ impl<'a> Parser<'a> {
         return self.errors.clone();
     }
 
-    fn peek_error(&mut self, token_type: token::TokenType){
-        let msg:String = format!("expected next token to be \"{}\", got \"{}\" instead", token_type, self.peek_token.type_f);
+    fn peek_error(&mut self, token_type: token::TokenType) {
+        let msg: String = format!(
+            "expected next token to be \"{}\", got \"{}\" instead",
+            token_type, self.peek_token.type_f
+        );
         self.errors.push(msg);
     }
-
-    
-
 }
 
 #[cfg(test)]
@@ -168,11 +185,10 @@ mod tests {
                 None => panic!("the statement is NOT LetStatement"),
             }
         }
-
     }
 
     #[test]
-    fn test_parser_error(){
+    fn test_parser_error() {
         let input = "
             let  = 10;
             let  = 4;
@@ -186,8 +202,52 @@ mod tests {
         assert_eq!(parser.get_errors().len(), 2);
 
         let expected_error = "expected next token to be \"IDENT\", got \"=\" instead";
-        for err in parser.get_errors().iter(){
+        for err in parser.get_errors().iter() {
             assert_eq!(expected_error, err);
-        } 
+        }
+    }
+
+    #[test]
+    fn test_return_statement() {
+        let input = "
+            return 5;
+            return 10;
+            return 993322;
+            ";
+        let lexer = lexer::Lexer::new(input);
+        let mut parser = parser::Parser::new(lexer);
+        let program = parser.parse_program().expect("Error parsing program");
+        assert_eq!(
+            program.statements.len(),
+            3,
+            "program.Statements does not contain 3 statements. got={}",
+            program.statements.len()
+        );
+
+        for i in 0..program.statements.len() {
+            let generic_statement: &ast::TStatement = &program.statements[i];
+
+            assert_eq!(generic_statement.token_literal(), "return");
+
+            // "type assertion"
+            let return_statement_opt: Option<&ast::ReturnStatement> = generic_statement
+                .as_any()
+                .downcast_ref::<ast::ReturnStatement>(
+            );
+
+            match return_statement_opt {
+                Some(statement) => {
+                    assert_eq!(
+                        statement.token_literal(),
+                        "return",
+                        "statement.token_literal not \"return\", got=\"{}\"",
+                        statement.token_literal()
+                    );
+                }
+                None => {
+                    assert!(false, "statement not &ReturnStatement")
+                }
+            }
+        }
     }
 }

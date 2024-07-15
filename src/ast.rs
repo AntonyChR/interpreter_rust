@@ -2,7 +2,7 @@
 
 use std::any::Any;
 
-use crate::{repl, token};
+use crate:: token;
 
 pub trait Node {
     /// only for debuging and testing
@@ -91,3 +91,24 @@ impl Node for LetStatement {
     }
 }
 
+// return statements
+pub struct ReturnStatement{
+    pub token: token::Token,
+}
+
+impl Node for ReturnStatement{
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Statement for ReturnStatement{
+    fn statement_node(self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn print_debug_info(&self) {
+        println!("");
+        println!("Token -> {:?}", self.token);
+    }
+}
