@@ -2,7 +2,7 @@
 
 use std::any::Any;
 
-use crate::token;
+use crate::{repl, token};
 
 pub trait Node {
     /// only for debuging and testing
@@ -90,3 +90,4 @@ impl Node for LetStatement {
         self.token.literal.clone()
     }
 }
+

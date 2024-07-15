@@ -5,17 +5,18 @@ use crate::lexer;
 use crate::token;
 
 pub struct Parser<'a> {
-    pub lexer: lexer::Lexer<'a>,
-    pub current_token: token::Token,
-    pub peek_token: token::Token,
+    lexer: lexer::Lexer<'a>,
+    current_token: token::Token,
+    peek_token: token::Token,
+    errors: Vec<String>,
 }
 
 impl<'a> Parser<'a> {
     pub fn new(lexer: lexer::Lexer<'a>) -> Self {
         let mut p: Parser<'_> = Parser {
             lexer,
-            current_token: token::Token::new_empty(),
-            peek_token: token::Token::new_empty(),
+            current_token: token::Token::new_empty(), peek_token: token::Token::new_empty(),
+            errors: Vec::new(),
         };
 
         // Initialize peek_token and current_token
@@ -58,7 +59,7 @@ impl<'a> Parser<'a> {
         Some(program)
     }
 
-    pub fn parse_let_statement(&mut self) -> Option<ast::TStatement> {
+    fn parse_let_statement(&mut self) -> Option<ast::TStatement> {
         let mut statement: Box<ast::LetStatement> = Box::new(ast::LetStatement {
             token: self.current_token.clone(),
             value: String::new(),
@@ -78,32 +79,47 @@ impl<'a> Parser<'a> {
             return None;
         }
 
+        
         while !self.current_token_is(token::SEMICOLON.to_string()) {
             self.next_token();
         }
         Some(statement)
     }
 
-    pub fn current_token_is(&self, token_type: token::TokenType) -> bool {
+    fn current_token_is(&self, token_type: token::TokenType) -> bool {
         return self.current_token.type_f == token_type;
     }
 
-    pub fn peek_token_is(&self, token_type: token::TokenType) -> bool {
+    fn peek_token_is(&self, token_type: token::TokenType) -> bool {
         return self.peek_token.type_f == token_type;
     }
 
-    pub fn expect_peek(&mut self, token_type: token::TokenType) -> bool {
-        if self.peek_token_is(token_type) {
+    fn expect_peek(&mut self, token_type: token::TokenType) -> bool {
+        if self.peek_token_is(token_type.clone()) {
             self.next_token();
             return true;
         } else {
+            self.peek_error(token_type);
             return false;
         }
     }
+
+    pub fn get_errors(&self) -> Vec<String> {
+        return self.errors.clone();
+    }
+
+    fn peek_error(&mut self, token_type: token::TokenType){
+        let msg:String = format!("expected next token to be \"{}\", got \"{}\" instead", token_type, self.peek_token.type_f);
+        self.errors.push(msg);
+    }
+
+    
+
 }
 
 #[cfg(test)]
 mod tests {
+
     use crate::ast;
     use crate::ast::Node;
     use crate::ast::Program;
@@ -121,6 +137,7 @@ mod tests {
         let lexer: lexer::Lexer = lexer::Lexer::new(input);
         let mut parser: parser::Parser = parser::Parser::new(lexer);
         let program: Program = parser.parse_program().unwrap();
+
         assert_eq!(program.statements.len(), 3);
         for i in 0..identifiers.len() {
             let expected_identifier = identifiers[i];
@@ -151,5 +168,26 @@ mod tests {
                 None => panic!("the statement is NOT LetStatement"),
             }
         }
+
+    }
+
+    #[test]
+    fn test_parser_error(){
+        let input = "
+            let  = 10;
+            let  = 4;
+            let foobar = 838383;
+            ";
+        let lexer: lexer::Lexer = lexer::Lexer::new(input);
+        let mut parser: parser::Parser = parser::Parser::new(lexer);
+
+        let _: Program = parser.parse_program().unwrap();
+
+        assert_eq!(parser.get_errors().len(), 2);
+
+        let expected_error = "expected next token to be \"IDENT\", got \"=\" instead";
+        for err in parser.get_errors().iter(){
+            assert_eq!(expected_error, err);
+        } 
     }
 }
