@@ -4,20 +4,20 @@ pub type TokenType = String;
 
 #[derive(Clone, Debug)]
 pub struct Token {
-    pub type_f: TokenType,
+    pub toke_type: TokenType,
     pub literal: String,
 }
 
 impl Token {
     pub fn new(token_t: &str, ch: &str) -> Self {
         Self {
-            type_f: token_t.to_string(),
+            toke_type: token_t.to_string(),
             literal: ch.to_string(),
         }
     }
     pub fn new_empty() -> Self {
         Self {
-            type_f: "".to_string(),
+            toke_type: "".to_string(),
             literal: "".to_string(),
         }
     }

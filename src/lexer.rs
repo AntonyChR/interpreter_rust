@@ -35,7 +35,7 @@ impl<'a> Lexer<'a> {
 
     pub fn read_identifier(&mut self) -> String {
         let position: usize = self.position;
-        while is_letter(self.ch) {
+        while is_letter(self.ch){
             self.read_char();
         }
         return self.input[position..self.position].to_string();
@@ -228,7 +228,11 @@ mod tests {
         let mut lexer = Lexer::new(input);
         for i in 0..expected.len() {
             let token = lexer.next_token();
-            assert_eq!(token.type_f, expected[i].0, "incorrect token type: {}", i);
+            assert_eq!(
+                token.toke_type, expected[i].0,
+                "incorrect token type: {}",
+                i
+            );
             assert_eq!(
                 token.literal, expected[i].1,
                 "incorrect token literal: {}",

@@ -1,14 +1,32 @@
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+
 use crate::ast;
 use crate::lexer;
 use crate::token;
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum OperatorPrecedence {
+    LOWEST = 1,
+    EQUALS,      // ==
+    LESSGREATER, // > or <
+    SUM,         // +
+    PRODUCT,     // *
+    PREFIX,      // -X or !X
+    CALL,        // myFunction(X)
+}
+
+type PrefixParseFn = fn(&Parser) -> ast::TExpression;
+type InfixParseFn = fn(&Parser, ast::TExpression) -> ast::TExpression;
+
 pub struct Parser<'a> {
     lexer: lexer::Lexer<'a>,
+    errors: Vec<String>,
     current_token: token::Token,
     peek_token: token::Token,
-    errors: Vec<String>,
+    prefix_parse_fns: HashMap<token::TokenType, PrefixParseFn>,
+    infix_parse_fns: HashMap<token::TokenType, InfixParseFn>,
 }
 
 impl<'a> Parser<'a> {
@@ -18,7 +36,12 @@ impl<'a> Parser<'a> {
             current_token: token::Token::new_empty(),
             peek_token: token::Token::new_empty(),
             errors: Vec::new(),
+            prefix_parse_fns: HashMap::new(),
+            infix_parse_fns: HashMap::new(),
         };
+
+        // registrar
+        p.register_prefix(token::IDENT.to_string(), Parser::parse_identifier);
 
         // Initialize peek_token and current_token
         p.next_token();
@@ -29,22 +52,12 @@ impl<'a> Parser<'a> {
     pub fn next_token(&mut self) {
         self.current_token = self.peek_token.clone();
         self.peek_token = self.lexer.next_token();
-        //self.current_token = std::mem::replace(&mut self.peek_token, self.lexer.next_token());
     }
     pub fn parse_statement(&mut self) -> Option<ast::TStatement> {
-        let token_type: String = self.current_token.type_f.clone();
-        match token_type.as_str() {
-            token::LET => match self.parse_let_statement() {
-                Some(value) => Some(value),
-                None => None,
-            },
-
-            token::RETURN => match self.parse_return_statement() {
-                Some(value) => Some(value),
-                None => None,
-            },
-
-            _ => return None,
+        match self.current_token.toke_type.as_str() {
+            token::LET => self.parse_let_statement(),
+            token::RETURN => self.parse_return_statement(),
+            _ => self.parse_expression_statement(),
         }
     }
     pub fn parse_program(&mut self) -> Option<ast::Program> {
@@ -52,7 +65,7 @@ impl<'a> Parser<'a> {
             statements: Vec::new(),
         };
 
-        while self.current_token.type_f != token::EOF {
+        while self.current_token.toke_type != token::EOF {
             let statement_opt: Option<ast::TStatement> = self.parse_statement();
             match statement_opt {
                 Some(statement) => {
@@ -69,7 +82,7 @@ impl<'a> Parser<'a> {
     fn parse_let_statement(&mut self) -> Option<ast::TStatement> {
         let mut statement: Box<ast::LetStatement> = Box::new(ast::LetStatement {
             token: self.current_token.clone(),
-            value: String::new(),
+            value: ast::Identifier::new_empty(),
             name: ast::Identifier::new_empty(),
         });
 
@@ -95,6 +108,7 @@ impl<'a> Parser<'a> {
     fn parse_return_statement(&mut self) -> Option<ast::TStatement> {
         let statement: Box<ast::ReturnStatement> = Box::new(ast::ReturnStatement {
             token: self.current_token.clone(),
+            return_value: None,
         });
         self.next_token();
         while !self.current_token_is(token::SEMICOLON.to_string()) {
@@ -103,12 +117,40 @@ impl<'a> Parser<'a> {
         return Some(statement);
     }
 
+    fn parse_expression_statement(&mut self) -> Option<ast::TStatement> {
+        let statement: Box<ast::ExpressionStatement> = Box::new(ast::ExpressionStatement {
+            token: self.current_token.clone(),
+            expression: self.parse_expression(OperatorPrecedence::LOWEST),
+        });
+
+        if self.peek_token_is(token::SEMICOLON.to_string()) {
+            self.next_token();
+        }
+        Some(statement)
+    }
+    fn parse_expression(&self, precedence: OperatorPrecedence) -> Option<ast::TExpression> {
+        let prefix_opt: Option<&PrefixParseFn> = self
+            .prefix_parse_fns
+            .get(self.current_token.toke_type.as_str());
+        match prefix_opt {
+            Some(func) => Some(func(self)),
+            None => None,
+        }
+    }
+
+    pub fn parse_identifier(p: &Parser) -> ast::TExpression {
+        Box::new(ast::Identifier {
+            token: p.current_token.clone(),
+            value: p.current_token.literal.clone(),
+        })
+    }
+
     fn current_token_is(&self, token_type: token::TokenType) -> bool {
-        return self.current_token.type_f == token_type;
+        return self.current_token.toke_type == token_type;
     }
 
     fn peek_token_is(&self, token_type: token::TokenType) -> bool {
-        return self.peek_token.type_f == token_type;
+        return self.peek_token.toke_type == token_type;
     }
 
     fn expect_peek(&mut self, token_type: token::TokenType) -> bool {
@@ -128,9 +170,17 @@ impl<'a> Parser<'a> {
     fn peek_error(&mut self, token_type: token::TokenType) {
         let msg: String = format!(
             "expected next token to be \"{}\", got \"{}\" instead",
-            token_type, self.peek_token.type_f
+            token_type, self.peek_token.toke_type
         );
         self.errors.push(msg);
+    }
+
+    fn register_prefix(&mut self, token_type: token::TokenType, func: PrefixParseFn) {
+        self.prefix_parse_fns.insert(token_type, func);
+    }
+
+    fn register_infix(&mut self, token_type: token::TokenType, func: InfixParseFn) {
+        self.infix_parse_fns.insert(token_type, func);
     }
 }
 
@@ -139,7 +189,6 @@ mod tests {
 
     use crate::ast;
     use crate::ast::Node;
-    use crate::ast::Program;
     use crate::lexer;
     use crate::parser;
 
@@ -153,7 +202,7 @@ mod tests {
         let identifiers = ["y", "x", "foobar"];
         let lexer: lexer::Lexer = lexer::Lexer::new(input);
         let mut parser: parser::Parser = parser::Parser::new(lexer);
-        let program: Program = parser.parse_program().unwrap();
+        let program: ast::Program = parser.parse_program().unwrap();
 
         assert_eq!(program.statements.len(), 3);
         for i in 0..identifiers.len() {
@@ -197,7 +246,7 @@ mod tests {
         let lexer: lexer::Lexer = lexer::Lexer::new(input);
         let mut parser: parser::Parser = parser::Parser::new(lexer);
 
-        let _: Program = parser.parse_program().unwrap();
+        let _ = parser.parse_program().unwrap();
 
         assert_eq!(parser.get_errors().len(), 2);
 
@@ -249,5 +298,53 @@ mod tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+        let lexer = lexer::Lexer::new(input);
+        let mut parser = parser::Parser::new(lexer);
+        let program = parser.parse_program().expect("Error parsing program");
+
+        assert_eq!(
+            program.statements.len(),
+            1,
+            "program has not enough statements, got={}",
+            program.statements.len()
+        );
+
+        let statement: &ast::TStatement = &program.statements[0];
+
+        let expression_statement: &ast::ExpressionStatement = match statement
+            .as_any()
+            .downcast_ref::<ast::ExpressionStatement>(
+        ) {
+            Some(expr_stmt) => expr_stmt,
+            None => panic!("program.statements[0] is not an ast::ExpressionStatement"),
+        };
+
+        let expression: &ast::TExpression = match expression_statement.expression.as_ref() {
+            Some(expr) => expr,
+            None => panic!("no expression in ast::ExpressionStatement"),
+        };
+
+        let identifier: &ast::Identifier = match expression.as_any().downcast_ref::<ast::Identifier>() {
+                Some(id) => id,
+                None => panic!("expression is not ast::Identifier"),
+            };
+
+        assert_eq!(
+            identifier.value, "foobar",
+            "identifier.value not \"foobar\", got={}",
+            identifier.value
+        );
+
+        assert_eq!(
+            identifier.token_literal(),
+            "foobar",
+            "identifier.token_literal not \"foobar\", got={}",
+            identifier.token_literal()
+        );
     }
 }

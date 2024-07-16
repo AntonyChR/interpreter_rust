@@ -1,5 +1,7 @@
 pub fn is_letter(ch: &str) -> bool {
-    let a = ch.chars().next().unwrap();
+    // TODO: if the input does not end with ";" the chars().next() method tries to access 
+    // the next character that does not exist and panics
+    let a = ch.chars().next().expect("Invalid character");
     return ('a'..='z').contains(&a) || ('A'..='Z').contains(&a) || a == '_';
 }
 

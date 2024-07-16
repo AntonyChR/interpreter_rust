@@ -16,10 +16,10 @@ pub fn start() {
             .expect("can not read user input");
         let mut lexer = Lexer::new(&input);
         let mut token: Token = lexer.next_token();
-        while token.type_f != EOF {
+        while token.toke_type != EOF {
             println!(
                 "token type:\"{}\", literal: \"{}\"",
-                token.type_f, token.literal
+                token.toke_type, token.literal
             );
             token = lexer.next_token();
         }
