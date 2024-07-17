@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::any::Any;
+use std::{any::Any, fmt::format};
 
 use crate::token;
 
@@ -152,7 +152,6 @@ impl Statement for ReturnStatement {
 
 // expression statement
 
-// return statement
 pub struct ExpressionStatement {
     pub token: token::Token,
     pub expression: Option<BoxedExpression>,
@@ -181,6 +180,28 @@ impl Statement for ExpressionStatement {
     }
 }
 
+
+pub struct IntegerLiteral{
+    pub token: token::Token,
+    pub value: i64,
+}
+
+impl Node for IntegerLiteral{
+    fn token_literal(&self) -> String {
+        format!("{}", self.value)
+    }    
+    fn string(&self) -> String {
+        self.token_literal()
+    }
+}
+
+impl Expression for IntegerLiteral {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn expression_node(&self) {}
+     
+}
 mod tests {
     use crate::ast;
     use crate::token;
