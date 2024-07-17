@@ -21,12 +21,12 @@ pub trait Expression: Node {
     fn as_any(&self) -> &dyn Any;
 }
 
-pub type TStatement = Box<dyn Statement>;
-pub type TExpression = Box<dyn Expression>;
+pub type BoxedStatement = Box<dyn Statement>;
+pub type BoxedExpression = Box<dyn Expression>;
 
 // root node
 pub struct Program {
-    pub statements: Vec<TStatement>,
+    pub statements: Vec<BoxedStatement>,
 }
 
 impl Node for Program {
@@ -122,7 +122,7 @@ impl Node for LetStatement {
 // return statement
 pub struct ReturnStatement {
     pub token: token::Token,
-    pub return_value: Option<TExpression>,
+    pub return_value: Option<BoxedExpression>,
 }
 
 impl Node for ReturnStatement {
@@ -155,7 +155,7 @@ impl Statement for ReturnStatement {
 // return statement
 pub struct ExpressionStatement {
     pub token: token::Token,
-    pub expression: Option<TExpression>,
+    pub expression: Option<BoxedExpression>,
 }
 
 impl Node for ExpressionStatement {

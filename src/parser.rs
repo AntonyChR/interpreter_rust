@@ -17,8 +17,8 @@ enum OperatorPrecedence {
     CALL,        // myFunction(X)
 }
 
-type PrefixParseFn = fn(&Parser) -> ast::TExpression;
-type InfixParseFn = fn(&Parser, ast::TExpression) -> ast::TExpression;
+type PrefixParseFn = fn(&Parser) -> ast::BoxedExpression;
+type InfixParseFn = fn(&Parser, ast::BoxedExpression) -> ast::BoxedExpression;
 
 pub struct Parser<'a> {
     lexer: lexer::Lexer<'a>,
@@ -53,7 +53,7 @@ impl<'a> Parser<'a> {
         self.current_token = self.peek_token.clone();
         self.peek_token = self.lexer.next_token();
     }
-    pub fn parse_statement(&mut self) -> Option<ast::TStatement> {
+    pub fn parse_statement(&mut self) -> Option<ast::BoxedStatement> {
         match self.current_token.toke_type.as_str() {
             token::LET => self.parse_let_statement(),
             token::RETURN => self.parse_return_statement(),
@@ -66,7 +66,7 @@ impl<'a> Parser<'a> {
         };
 
         while self.current_token.toke_type != token::EOF {
-            let statement_opt: Option<ast::TStatement> = self.parse_statement();
+            let statement_opt: Option<ast::BoxedStatement> = self.parse_statement();
             match statement_opt {
                 Some(statement) => {
                     //statement.print_debug_info();
@@ -79,7 +79,7 @@ impl<'a> Parser<'a> {
         Some(program)
     }
 
-    fn parse_let_statement(&mut self) -> Option<ast::TStatement> {
+    fn parse_let_statement(&mut self) -> Option<ast::BoxedStatement> {
         let mut statement: Box<ast::LetStatement> = Box::new(ast::LetStatement {
             token: self.current_token.clone(),
             value: ast::Identifier::new_empty(),
@@ -105,7 +105,7 @@ impl<'a> Parser<'a> {
         Some(statement)
     }
 
-    fn parse_return_statement(&mut self) -> Option<ast::TStatement> {
+    fn parse_return_statement(&mut self) -> Option<ast::BoxedStatement> {
         let statement: Box<ast::ReturnStatement> = Box::new(ast::ReturnStatement {
             token: self.current_token.clone(),
             return_value: None,
@@ -117,7 +117,7 @@ impl<'a> Parser<'a> {
         return Some(statement);
     }
 
-    fn parse_expression_statement(&mut self) -> Option<ast::TStatement> {
+    fn parse_expression_statement(&mut self) -> Option<ast::BoxedStatement> {
         let statement: Box<ast::ExpressionStatement> = Box::new(ast::ExpressionStatement {
             token: self.current_token.clone(),
             expression: self.parse_expression(OperatorPrecedence::LOWEST),
@@ -128,7 +128,7 @@ impl<'a> Parser<'a> {
         }
         Some(statement)
     }
-    fn parse_expression(&self, precedence: OperatorPrecedence) -> Option<ast::TExpression> {
+    fn parse_expression(&self, precedence: OperatorPrecedence) -> Option<ast::BoxedExpression> {
         let prefix_opt: Option<&PrefixParseFn> = self
             .prefix_parse_fns
             .get(self.current_token.toke_type.as_str());
@@ -138,7 +138,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse_identifier(p: &Parser) -> ast::TExpression {
+    pub fn parse_identifier(p: &Parser) -> ast::BoxedExpression {
         Box::new(ast::Identifier {
             token: p.current_token.clone(),
             value: p.current_token.literal.clone(),
@@ -207,7 +207,7 @@ mod tests {
         assert_eq!(program.statements.len(), 3);
         for i in 0..identifiers.len() {
             let expected_identifier = identifiers[i];
-            let generic_statement: &ast::TStatement = &program.statements[i];
+            let generic_statement: &ast::BoxedStatement = &program.statements[i];
 
             assert_eq!(generic_statement.token_literal(), "let");
 
@@ -274,7 +274,7 @@ mod tests {
         );
 
         for i in 0..program.statements.len() {
-            let generic_statement: &ast::TStatement = &program.statements[i];
+            let generic_statement: &ast::BoxedStatement = &program.statements[i];
 
             assert_eq!(generic_statement.token_literal(), "return");
 
@@ -314,7 +314,7 @@ mod tests {
             program.statements.len()
         );
 
-        let statement: &ast::TStatement = &program.statements[0];
+        let statement: &ast::BoxedStatement = &program.statements[0];
 
         let expression_statement: &ast::ExpressionStatement = match statement
             .as_any()
@@ -324,12 +324,13 @@ mod tests {
             None => panic!("program.statements[0] is not an ast::ExpressionStatement"),
         };
 
-        let expression: &ast::TExpression = match expression_statement.expression.as_ref() {
+        let expression: &ast::BoxedExpression = match expression_statement.expression.as_ref() {
             Some(expr) => expr,
             None => panic!("no expression in ast::ExpressionStatement"),
         };
 
-        let identifier: &ast::Identifier = match expression.as_any().downcast_ref::<ast::Identifier>() {
+        let identifier: &ast::Identifier =
+            match expression.as_any().downcast_ref::<ast::Identifier>() {
                 Some(id) => id,
                 None => panic!("expression is not ast::Identifier"),
             };
