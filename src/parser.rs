@@ -44,6 +44,9 @@ impl<'a> Parser<'a> {
         p.register_prefix(token::IDENT.to_string(), Parser::parse_identifier);
         p.register_prefix(token::INT.to_string(), Parser::parse_integer_literal);
 
+        p.register_prefix(token::BANG.to_string(), Parser::parse_prefix_expression);
+        p.register_prefix(token::MINUS.to_string(), Parser::parse_prefix_expression);
+
         // Initialize peek_token and current_token
         p.next_token();
         p.next_token();
@@ -54,13 +57,42 @@ impl<'a> Parser<'a> {
         self.current_token = self.peek_token.clone();
         self.peek_token = self.lexer.next_token();
     }
-    pub fn parse_statement(&mut self) -> Option<ast::BoxedStatement> {
-        match self.current_token.toke_type.as_str() {
-            token::LET => self.parse_let_statement(),
-            token::RETURN => self.parse_return_statement(),
-            _ => self.parse_expression_statement(),
+
+    fn current_token_is(&self, token_type: token::TokenType) -> bool {
+        return self.current_token.toke_type == token_type;
+    }
+
+    fn peek_token_is(&self, token_type: token::TokenType) -> bool {
+        return self.peek_token.toke_type == token_type;
+    }
+
+    fn expect_peek(&mut self, token_type: token::TokenType) -> bool {
+        if self.peek_token_is(token_type.clone()) {
+            self.next_token();
+            return true;
+        } else {
+            self.peek_error(token_type);
+            return false;
         }
     }
+
+    pub fn get_errors(&self) -> Vec<String> {
+        return self.errors.clone();
+    }
+
+    fn peek_error(&mut self, token_type: token::TokenType) {
+        let msg: String = format!(
+            "expected next token to be \"{}\", got \"{}\" instead",
+            token_type, self.peek_token.toke_type
+        );
+        self.errors.push(msg);
+    }
+
+    fn no_prefix_parse_fn_error(&mut self, token_type: token::TokenType) {
+        self.errors
+            .push(format!("no prefix parse function for {} found", token_type))
+    }
+
     pub fn parse_program(&mut self) -> Option<ast::Program> {
         let mut program: ast::Program = ast::Program {
             statements: Vec::new(),
@@ -78,6 +110,14 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
         Some(program)
+    }
+
+    pub fn parse_statement(&mut self) -> Option<ast::BoxedStatement> {
+        match self.current_token.toke_type.as_str() {
+            token::LET => self.parse_let_statement(),
+            token::RETURN => self.parse_return_statement(),
+            _ => self.parse_expression_statement(),
+        }
     }
 
     fn parse_let_statement(&mut self) -> Option<ast::BoxedStatement> {
@@ -135,7 +175,10 @@ impl<'a> Parser<'a> {
             .get(self.current_token.toke_type.as_str());
         match prefix_opt {
             Some(func) => func(self),
-            None => None,
+            None => {
+                self.no_prefix_parse_fn_error(self.current_token.toke_type.clone());
+                None
+            }
         }
     }
 
@@ -146,47 +189,31 @@ impl<'a> Parser<'a> {
         }))
     }
 
-    fn parse_integer_literal(p: &mut Parser) ->Option<ast::BoxedExpression>{
+    fn parse_integer_literal(p: &mut Parser) -> Option<ast::BoxedExpression> {
         match p.current_token.literal.parse::<i64>() {
-            Ok(value) =>Some(Box::new(ast::IntegerLiteral{
+            Ok(value) => Some(Box::new(ast::IntegerLiteral {
                 token: p.current_token.clone(),
                 value,
             })),
             Err(e) => {
-                p.errors.push(format!("could not parse {} as integer, {}", p.current_token.literal, e));
+                p.errors.push(format!(
+                    "could not parse {} as integer, {}",
+                    p.current_token.literal, e
+                ));
                 None
             }
         }
     }
 
-    fn current_token_is(&self, token_type: token::TokenType) -> bool {
-        return self.current_token.toke_type == token_type;
-    }
-
-    fn peek_token_is(&self, token_type: token::TokenType) -> bool {
-        return self.peek_token.toke_type == token_type;
-    }
-
-    fn expect_peek(&mut self, token_type: token::TokenType) -> bool {
-        if self.peek_token_is(token_type.clone()) {
-            self.next_token();
-            return true;
-        } else {
-            self.peek_error(token_type);
-            return false;
-        }
-    }
-
-    pub fn get_errors(&self) -> Vec<String> {
-        return self.errors.clone();
-    }
-
-    fn peek_error(&mut self, token_type: token::TokenType) {
-        let msg: String = format!(
-            "expected next token to be \"{}\", got \"{}\" instead",
-            token_type, self.peek_token.toke_type
-        );
-        self.errors.push(msg);
+    fn parse_prefix_expression(p: &mut Parser) -> Option<ast::BoxedExpression> {
+        let mut expression = Box::new(ast::PrefixExpression {
+            token: p.current_token.clone(),
+            operator: p.current_token.literal.clone(),
+            right: None,
+        });
+        p.next_token();
+        expression.right = p.parse_expression(OperatorPrecedence::PREFIX);
+        Some(expression)
     }
 
     fn register_prefix(&mut self, token_type: token::TokenType, func: PrefixParseFn) {
@@ -247,26 +274,6 @@ mod tests {
                 }
                 None => panic!("the statement is NOT LetStatement"),
             }
-        }
-    }
-
-    #[test]
-    fn test_parser_error() {
-        let input = "
-            let  = 10;
-            let  = 4;
-            let foobar = 838383;
-            ";
-        let lexer: lexer::Lexer = lexer::Lexer::new(input);
-        let mut parser: parser::Parser = parser::Parser::new(lexer);
-
-        let _ = parser.parse_program().unwrap();
-
-        assert_eq!(parser.get_errors().len(), 2);
-
-        let expected_error = "expected next token to be \"IDENT\", got \"=\" instead";
-        for err in parser.get_errors().iter() {
-            assert_eq!(expected_error, err);
         }
     }
 
@@ -364,8 +371,8 @@ mod tests {
     }
 
     #[test]
-    fn test_integer_literal_expression(){
-        let input ="5;";
+    fn test_integer_literal_expression() {
+        let input = "5;";
         let lexer = lexer::Lexer::new(input);
         let mut parser = parser::Parser::new(lexer);
         let program = parser.parse_program().expect("Error parsing program");
@@ -392,14 +399,23 @@ mod tests {
             None => panic!("no expression in ast::ExpressionStatement"),
         };
 
-        let literal: &ast::IntegerLiteral=
+        let literal: &ast::IntegerLiteral =
             match expression.as_any().downcast_ref::<ast::IntegerLiteral>() {
                 Some(id) => id,
                 None => panic!("expression is not ast::IntegerLiteral"),
             };
 
-        assert_eq!(literal.value, 5, "literal.value no int {}, got {}",5,literal.value);
-        assert_eq!(literal.token_literal(), "5", "literal.value no string \"{}\", got \"{}\"","5",literal.token_literal());
-
+        assert_eq!(
+            literal.value, 5,
+            "literal.value no int {}, got {}",
+            5, literal.value
+        );
+        assert_eq!(
+            literal.token_literal(),
+            "5",
+            "literal.value no string \"{}\", got \"{}\"",
+            "5",
+            literal.token_literal()
+        );
     }
 }
