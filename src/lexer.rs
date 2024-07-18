@@ -35,7 +35,7 @@ impl<'a> Lexer<'a> {
 
     pub fn read_identifier(&mut self) -> String {
         let position: usize = self.position;
-        while is_letter(self.ch){
+        while is_letter(self.ch) {
             self.read_char();
         }
         return self.input[position..self.position].to_string();

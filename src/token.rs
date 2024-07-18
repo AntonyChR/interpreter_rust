@@ -9,9 +9,9 @@ pub struct Token {
 }
 
 impl Token {
-    pub fn new(token_t: &str, ch: &str) -> Self {
+    pub fn new(token_type: &str, ch: &str) -> Self {
         Self {
-            toke_type: token_t.to_string(),
+            toke_type: token_type.to_string(),
             literal: ch.to_string(),
         }
     }

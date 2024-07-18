@@ -5,14 +5,13 @@ use std::{any::Any, fmt::format};
 use crate::token;
 
 pub trait Node {
-    /// only for debuging and testing
     fn token_literal(&self) -> String;
     fn string(&self) -> String;
 }
 
 pub trait Statement: Node {
     fn statement_node(self);
-    fn as_any(&self) -> &dyn Any;
+    fn as_any(&self) -> &dyn Any; // type assertion
     fn print_debug_info(&self);
 }
 
@@ -180,16 +179,15 @@ impl Statement for ExpressionStatement {
     }
 }
 
-
-pub struct IntegerLiteral{
+pub struct IntegerLiteral {
     pub token: token::Token,
     pub value: i64,
 }
 
-impl Node for IntegerLiteral{
+impl Node for IntegerLiteral {
     fn token_literal(&self) -> String {
         format!("{}", self.value)
-    }    
+    }
     fn string(&self) -> String {
         self.token_literal()
     }
@@ -200,8 +198,35 @@ impl Expression for IntegerLiteral {
         self
     }
     fn expression_node(&self) {}
-     
 }
+
+pub struct PrefixExpression{
+    pub token: token::Token,
+    pub operator: String,
+    pub right: Option<BoxedExpression>,
+}
+
+impl Node for PrefixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn string(&self) -> String {
+        match &self.right {
+            Some(value) =>format!("({}{})", self.operator,value.string()),
+            None =>panic!("PrefixExpression.Right is a None value") 
+        }
+        
+    }
+}
+
+
+impl Expression for PrefixExpression{
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn expression_node(&self) {}
+}
+
 mod tests {
     use crate::ast;
     use crate::token;
