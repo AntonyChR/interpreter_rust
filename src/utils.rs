@@ -1,13 +1,18 @@
 pub fn is_letter(ch: &str) -> bool {
     // TODO: if the input does not end with ";" the chars().next() method tries to access 
     // the next character that does not exist and panics
-    let a = ch.chars().next().expect("Invalid character");
-    return ('a'..='z').contains(&a) || ('A'..='Z').contains(&a) || a == '_';
+    match ch.chars().next() {
+        Some(value) => ('a'..='z').contains(&value) || ('A'..='Z').contains(&value) || value == '_',
+        None => false
+    }
+
 }
 
 pub fn is_digit(ch: &str) -> bool {
-    let a = ch.chars().next().unwrap();
-    return ('1'..='9').contains(&a) || a == '0';
+    match ch.chars().next() {
+        Some(value) => ('1'..='9').contains(&value) || value == '0',
+        None => false
+    }
 }
 
 #[cfg(test)]

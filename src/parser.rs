@@ -233,6 +233,20 @@ mod tests {
     use crate::lexer;
     use crate::parser;
 
+    fn check_parser_errors(parser:&parser::Parser){
+        let mut msg: String;
+
+        if parser.get_errors().len() == 0 {
+            return;
+        }
+        msg = format!("parser hast {} errors\n", parser.get_errors().len());
+
+        for err in parser.get_errors().iter(){
+            msg = msg + format!("parser error: {}\n", err).as_str();
+        }
+        panic!("{}",msg);
+    }
+
     #[test]
     fn test_let_statements() {
         let input = "
@@ -286,6 +300,8 @@ mod tests {
             ";
         let lexer = lexer::Lexer::new(input);
         let mut parser = parser::Parser::new(lexer);
+        check_parser_errors(&parser);
+
         let program = parser.parse_program().expect("Error parsing program");
         assert_eq!(
             program.statements.len(),
@@ -326,6 +342,8 @@ mod tests {
         let input = "foobar;";
         let lexer = lexer::Lexer::new(input);
         let mut parser = parser::Parser::new(lexer);
+        check_parser_errors(&parser);
+
         let program = parser.parse_program().expect("Error parsing program");
 
         assert_eq!(
@@ -375,6 +393,8 @@ mod tests {
         let input = "5;";
         let lexer = lexer::Lexer::new(input);
         let mut parser = parser::Parser::new(lexer);
+        check_parser_errors(&parser);
+
         let program = parser.parse_program().expect("Error parsing program");
 
         assert_eq!(
@@ -417,5 +437,96 @@ mod tests {
             "5",
             literal.token_literal()
         );
+    }
+
+    #[test]
+    fn test_parcing_prefix_expression(){
+        let test_cases = [
+            ("!5", "!", 5),
+            ("-15", "-", 15),
+        ];
+
+        for tc in test_cases.iter(){
+            let lexer = lexer::Lexer::new(tc.0);
+            let mut parser = parser::Parser::new(lexer);
+            check_parser_errors(&parser);
+
+            let program = parser.parse_program().expect("error parcing program");
+
+            // TODO: check errors
+
+            assert_eq!(
+                program.statements.len(), 
+                1, 
+                "prgram.statements does not contain {} statements. got={}", 
+                1, 
+                program.statements.len()
+            );
+
+            let statement: &ast::BoxedStatement = &program.statements[0];
+
+            let expression_statement: &ast::ExpressionStatement = match statement
+                .as_any()
+                .downcast_ref::<ast::ExpressionStatement>(
+                ) {
+                    Some(expr_stmt) => expr_stmt,
+                    None => panic!("program.statements[0] is not an ast::ExpressionStatement"),
+                };
+
+            let expression: &ast::BoxedExpression = match expression_statement.expression.as_ref() {
+                Some(expr) => expr,
+                None => panic!("no expression in ast::ExpressionStatement"),
+            };
+
+            let prefix_expr: &ast::PrefixExpression =  match expression 
+                .as_any()
+                .downcast_ref::<ast::PrefixExpression>(
+                ){
+                    Some(prefix_expr) => prefix_expr,
+                    None => panic!("expression is not ast::PrefixExpression")
+                };
+
+            assert_eq!(
+                prefix_expr.operator, 
+                tc.1, 
+                "prefix_expr.operator is not \"{}\", 
+                got \"{}\"", 
+                tc.1, prefix_expr.operator
+                );
+
+            match &prefix_expr.right {
+               Some(value) => test_integer_literal(value, tc.2),
+               None => panic!("prefix_expr.righ is None")
+            };
+        }
+
+        fn test_integer_literal(expression: &ast::BoxedExpression, expected_value: i64){
+            let int_literal: &ast::IntegerLiteral=  match expression 
+                .as_any()
+                .downcast_ref::<ast::IntegerLiteral>(
+                ){
+                    Some(prefix_expr) => prefix_expr,
+                    None => panic!("expression is not ast::IntegerLiteral")
+                };
+
+            assert_eq!(
+                int_literal.value,
+                expected_value, 
+                "int_literal.value not {} got={}", 
+                expected_value, 
+                int_literal.value
+                );
+
+            assert_eq!(
+                int_literal.token_literal(),
+                format!("{}",expected_value),
+                "int_literal.token_literal not \"{}\" got= \"{}\"",
+                expected_value,
+                int_literal.token_literal()
+            );
+                        
+        }
+
+
     }
 }
