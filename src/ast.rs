@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::{any::Any, fmt::format};
+use std::any::Any;
 
 use crate::token;
 
@@ -200,7 +200,7 @@ impl Expression for IntegerLiteral {
     fn expression_node(&self) {}
 }
 
-pub struct PrefixExpression{
+pub struct PrefixExpression {
     pub token: token::Token,
     pub operator: String,
     pub right: Option<BoxedExpression>,
@@ -212,15 +212,44 @@ impl Node for PrefixExpression {
     }
     fn string(&self) -> String {
         match &self.right {
-            Some(value) =>format!("({}{})", self.operator,value.string()),
-            None =>panic!("PrefixExpression.Right is a None value") 
+            Some(value) => format!("({}{})", self.operator, value.string()),
+            None => panic!("PrefixExpression.Right is a None value"),
         }
-        
     }
 }
 
+impl Expression for PrefixExpression {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn expression_node(&self) {}
+}
 
-impl Expression for PrefixExpression{
+pub struct InfixExpression {
+    pub token: token::Token,
+    pub left: Option<BoxedExpression>,
+    pub operator: String,
+    pub right: Option<BoxedExpression>,
+}
+
+impl Node for InfixExpression {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn string(&self) -> String {
+        let left_string = self.left.as_ref().map_or_else(
+            || panic!("no expression in left node"),
+            |expr| expr.string(),
+        );
+        let right_string = self.right.as_ref().map_or_else(
+            || panic!("no expression in right node"),
+            |expr| expr.string(),
+        );
+        format!("({} {} {})", left_string, self.operator, right_string)
+    }
+}
+
+impl Expression for InfixExpression {
     fn as_any(&self) -> &dyn Any {
         self
     }
@@ -228,11 +257,11 @@ impl Expression for PrefixExpression{
 }
 
 mod tests {
-    use crate::ast;
-    use crate::token;
-
     #[test]
     fn test_string_method_by_node_trait() {
+        use crate::ast;
+        use crate::token;
+
         let program: ast::Program = ast::Program {
             statements: vec![Box::new(ast::LetStatement {
                 token: token::Token {
