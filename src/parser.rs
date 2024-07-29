@@ -17,7 +17,7 @@ enum Precedence {
     CALL,        // MYfunction(X)
 }
 
-const PRECEDENCES: [(&str, Precedence); 8] = [
+const PRECEDENCES_MAP: [(&str, Precedence); 8] = [
     (token::EQ, Precedence::EQUALS),
     (token::NOT_EQ, Precedence::EQUALS),
     (token::LT, Precedence::LESSGREATER),
@@ -29,7 +29,7 @@ const PRECEDENCES: [(&str, Precedence); 8] = [
 ];
 
 fn precedences(token_type: String) -> Option<Precedence> {
-    for p in PRECEDENCES.iter() {
+    for p in PRECEDENCES_MAP.iter() {
         if p.0 == token_type {
             return Some(p.1.clone());
         }
@@ -125,13 +125,8 @@ impl<'a> Parser<'a> {
         };
 
         while self.current_token.toke_type != token::EOF {
-            let statement_opt: Option<ast::BoxedStatement> = self.parse_statement();
-            match statement_opt {
-                Some(statement) => {
-                    //statement.print_debug_info();
-                    program.statements.push(statement);
-                }
-                _ => {}
+           if let Some(statement) = self.parse_statement(){
+                program.statements.push(statement);
             }
             self.next_token();
         }
@@ -170,6 +165,7 @@ impl<'a> Parser<'a> {
             self.next_token();
         }
         Some(statement)
+
     }
 
     fn parse_return_statement(&mut self) -> Option<ast::BoxedStatement> {
@@ -217,12 +213,12 @@ impl<'a> Parser<'a> {
             && precedence < self.peek_precedence()
         {
             // instead of cloning the entire HashMap, just clone the reference to an element
-            let infix_clone = self
+            let infix_opt:Option<InfixParseFn> = self
                 .infix_parse_fns
                 .get(self.peek_token.toke_type.as_str())
                 .cloned();
 
-            match infix_clone {
+            match infix_opt {
                 Some(infix) => {
                     self.next_token();
                     left_exp_opt = infix(self, left_exp_opt);
@@ -315,6 +311,7 @@ mod tests {
 
     use crate::ast;
     use crate::ast::Node;
+    use crate::ast::Statement;
     use crate::lexer;
     use crate::parser;
 
@@ -332,6 +329,32 @@ mod tests {
         panic!("{}", msg);
     }
 
+    fn test_identifier(expression: &ast::BoxedExpression, expected_value: String){
+        let identifier_opt: Option<&ast::Identifier> = expression 
+            .as_any()
+            .downcast_ref::<ast::Identifier>();
+
+
+        let identifier = identifier_opt.expect("ast::expression is not ast::Identifier");
+
+        assert_eq!(
+            identifier.value, 
+            expected_value, 
+            "identifier.value is not \"{}\", got=\"{}\"", 
+            expected_value, 
+            identifier.value
+            );
+
+        assert_eq!(
+            identifier.token_literal(),
+            expected_value,
+            "identifier.token_literal is not \"{}\", got=\"{}\"",
+            expected_value,
+            identifier.token_literal()
+        );
+    }
+
+
     #[test]
     fn test_let_statements() {
         let input = "
@@ -342,7 +365,7 @@ mod tests {
         let identifiers = ["y", "x", "foobar"];
         let lexer: lexer::Lexer = lexer::Lexer::new(input);
         let mut parser: parser::Parser = parser::Parser::new(lexer);
-        let program: ast::Program = parser.parse_program().unwrap();
+        let program: ast::Program = parser.parse_program().expect("Error parsing program");
 
         assert_eq!(program.statements.len(), 3);
         for i in 0..identifiers.len() {
@@ -408,6 +431,7 @@ mod tests {
 
             match return_statement_opt {
                 Some(statement) => {
+                    statement.print_debug_info();
                     assert_eq!(
                         statement.token_literal(),
                         "return",
@@ -452,24 +476,7 @@ mod tests {
             None => panic!("no expression in ast::ExpressionStatement"),
         };
 
-        let identifier: &ast::Identifier =
-            match expression.as_any().downcast_ref::<ast::Identifier>() {
-                Some(id) => id,
-                None => panic!("expression is not ast::Identifier"),
-            };
-
-        assert_eq!(
-            identifier.value, "foobar",
-            "identifier.value not \"foobar\", got={}",
-            identifier.value
-        );
-
-        assert_eq!(
-            identifier.token_literal(),
-            "foobar",
-            "identifier.token_literal not \"foobar\", got={}",
-            identifier.token_literal()
-        );
+        test_identifier(expression, "foobar".to_string());
     }
 
     #[test]
@@ -502,24 +509,7 @@ mod tests {
             None => panic!("no expression in ast::ExpressionStatement"),
         };
 
-        let literal: &ast::IntegerLiteral =
-            match expression.as_any().downcast_ref::<ast::IntegerLiteral>() {
-                Some(id) => id,
-                None => panic!("expression is not ast::IntegerLiteral"),
-            };
-
-        assert_eq!(
-            literal.value, 5,
-            "literal.value no int {}, got {}",
-            5, literal.value
-        );
-        assert_eq!(
-            literal.token_literal(),
-            "5",
-            "literal.value no string \"{}\", got \"{}\"",
-            "5",
-            literal.token_literal()
-        );
+        test_integer_literal(expression, 5);
     }
 
     #[test]
@@ -563,7 +553,7 @@ mod tests {
 
             assert_eq!(
                 prefix_expr.operator, tc.1,
-                "prefix_expr.operator is not \"{}\", 
+                "prefix_expr.operator is not \"{}\",
                 got \"{}\"",
                 tc.1, prefix_expr.operator
             );
@@ -575,6 +565,9 @@ mod tests {
         }
     }
 
+    /// Checks that the expression if of type ast::IntegerLiteral and evaluates that
+    /// ast::IntegerLiteral.value and ast::IntegerLiteral.token_literal() is equal to
+    /// expected_value
     fn test_integer_literal(expression: &ast::BoxedExpression, expected_value: i64) {
         let int_literal: &ast::IntegerLiteral =
             match expression.as_any().downcast_ref::<ast::IntegerLiteral>() {
@@ -595,6 +588,51 @@ mod tests {
             expected_value,
             int_literal.token_literal()
         );
+    }
+
+    enum ExpectedType{
+        Int(i32),
+        Int64(i64),
+        Str(String),
+    }
+
+    /// Checks that the literal value of the expression is equal to "expected"
+    fn test_literal_expression(expression: &ast::BoxedExpression, expected: ExpectedType){
+        match expected {
+            ExpectedType::Int(v) => test_integer_literal(expression, i64::from(v)),
+            ExpectedType::Int64(v) => test_integer_literal(expression, v),
+            ExpectedType::Str(v) => test_identifier(expression, v),
+        }
+    }
+
+    /// Checks whether the literal values of the operands are as expected
+    fn test_infix_expression(
+        expression: &ast::BoxedExpression, 
+        expected_left_value:ExpectedType, 
+        operator: String, 
+        expected_right_value:ExpectedType
+        ){
+        let operation_expression: &ast::InfixExpression=
+            match expression.as_any().downcast_ref::<ast::InfixExpression>() {
+                Some(op_exp) =>op_exp,
+                None => panic!("expression is not ast::InfixExpression"),
+            };
+
+        let left_expression:&ast::BoxedExpression = match &operation_expression.left {
+            Some(left_exp) => left_exp,
+            None => panic!("no value in operation_expression.left")
+            
+        };
+
+        let right_expression:&ast::BoxedExpression = match &operation_expression.right{
+            Some(right_exp) => right_exp,
+            None => panic!("no value in operation_expression.right")
+            
+        };
+ 
+        test_literal_expression(left_expression, expected_left_value);
+        assert_eq!(operation_expression.operator, operator,"expression.operator is not {}, got {}", operator, operation_expression.operator);
+        test_literal_expression(right_expression, expected_right_value);
     }
 
     #[test]
@@ -638,32 +676,87 @@ mod tests {
                 Some(expr) => expr,
                 None => panic!("no expression in ast::ExpressionStatement"),
             };
-
-            let infix_expression: &ast::InfixExpression =
-                match expression.as_any().downcast_ref::<ast::InfixExpression>() {
-                    Some(infix_expr) => infix_expr,
-                    None => panic!("expression is not ast::InfixExpression"),
-                };
-
-            if let Some(left_epr) = &infix_expression.left {
-                test_integer_literal(left_epr, tc.left_value);
-            } else {
-                panic!("not left node in ast::InfixExpression");
-            }
-
-            assert_eq!(
-                infix_expression.operator, tc.operator,
-                "infix_expression.operator is not {}, got {}",
-                tc.operator, infix_expression.operator
-            );
-
-            println!("gasita");
-            if let Some(right_epr) = &infix_expression.right {
-                test_integer_literal(right_epr, tc.right_value);
-            } else {
-                panic!("not right node in ast::InfixExpression");
-            }
+            test_infix_expression(
+                expression,
+                ExpectedType::Int64(tc.left_value),
+                tc.operator.to_string(), 
+                ExpectedType::Int64(tc.right_value)
+                );
         }
     }
-}
 
+    fn test_operator_precendence_parsing() {
+        struct TC<'a> {
+            input: &'a str,
+            expected: &'a str,
+        }
+
+        let tests = [
+            TC {
+                input: "a * b",
+                expected: "((-a) * b)",
+            },
+            TC {
+                input: "a",
+                expected: "(!(-a))",
+            },
+            TC {
+                input: "a + b + c",
+                expected: "((a + b) + c)",
+            },
+            TC {
+                input: "a + b - c",
+                expected: "((a + b) - c)",
+            },
+            TC {
+                input: "a * b * c",
+                expected: "((a * b) * c)",
+            },
+            TC {
+                input: "a * b / c",
+                expected: "((a * b) / c)",
+            },
+            TC {
+                input: "a + b / c",
+                expected: "(a + (b / c))",
+            },
+            TC {
+                input: "a + b * c + d / e - f",
+                expected: "(((a + (b * c)) + (d / e)) - f)",
+            },
+            TC {
+                input: "3 + 4; -5 * 5",
+                expected: "(3 + 4)((-5) * 5)",
+            },
+            TC {
+                input: "5 > 4 == 3 < 4",
+                expected: "((5 > 4) == (3 < 4))",
+            },
+            TC {
+                input: "5 < 4 != 3 > 4",
+                expected: "((5 < 4) != (3 > 4))",
+            },
+            TC {
+                input: "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                expected: "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            }
+        ];
+
+        for tc in tests.iter(){
+            let lexer = lexer::Lexer::new(tc.input);
+            let mut parser = parser::Parser::new(lexer);
+            let program = parser.parse_program().expect("error parcing program");
+            check_parser_errors(&parser);
+
+            assert_eq!(
+                program.string(), 
+                tc.expected, 
+                "expected=\"{}\", 
+                go=\"{}\"", 
+                tc.expected,
+                program.string()
+                );
+        }
+        
+    }
+}

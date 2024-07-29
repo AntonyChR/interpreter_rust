@@ -11,7 +11,7 @@ pub trait Node {
 
 pub trait Statement: Node {
     fn statement_node(self);
-    fn as_any(&self) -> &dyn Any; // type assertion
+    fn as_any(&self) -> &dyn Any;
     fn print_debug_info(&self);
 }
 
