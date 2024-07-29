@@ -685,6 +685,7 @@ mod tests {
         }
     }
 
+    #[test]
     fn test_operator_precendence_parsing() {
         struct TC<'a> {
             input: &'a str,
@@ -692,15 +693,17 @@ mod tests {
         }
 
         let tests = [
-            TC {
-                input: "a * b",
-                expected: "((-a) * b)",
-            },
-            TC {
-                input: "a",
+ 
+           TC {
+                input: "!-a",
                 expected: "(!(-a))",
             },
+
             TC {
+                input: "-a * b",
+                expected: "((-a) * b)",
+            },
+           TC {
                 input: "a + b + c",
                 expected: "((a + b) + c)",
             },
@@ -751,8 +754,7 @@ mod tests {
             assert_eq!(
                 program.string(), 
                 tc.expected, 
-                "expected=\"{}\", 
-                go=\"{}\"", 
+                "expected=\"{}\", go=\"{}\"", 
                 tc.expected,
                 program.string()
                 );

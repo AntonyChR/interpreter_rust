@@ -37,7 +37,12 @@ impl Node for Program {
         }
     }
     fn string(&self) -> String {
-        String::new()
+        let mut a:String = String::new();
+        for stmt in self.statements.iter(){
+            println!("{}",stmt.string());
+            a.push_str(stmt.string().as_str())
+        }
+        return a;
     }
 }
 
