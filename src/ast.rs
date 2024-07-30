@@ -261,6 +261,93 @@ impl Expression for InfixExpression {
     fn expression_node(&self) {}
 }
 
+pub struct Boolean {
+    pub token: token::Token,
+    pub value: bool,
+}
+
+impl Node for Boolean {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+    fn string(&self) -> String {
+        self.token.literal.clone()
+    }
+    
+}
+
+impl Expression for Boolean {
+    fn expression_node(&self) {
+        
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+ 
+}
+
+pub struct BlockStatement{
+    pub token: token::Token,
+    pub statements: Vec<BoxedStatement>,
+}
+
+impl Node for BlockStatement{
+    fn token_literal(&self) -> String {
+        return self.token.literal.clone();
+    }
+    fn string(&self) -> String {
+        let mut out = String::new();
+        for statement in self.statements.iter() {
+            out.push_str(statement.string().as_str());
+        }
+        return out;
+    }
+}
+
+impl Statement for BlockStatement{
+    fn as_any(&self) -> &dyn Any {
+       self 
+    }
+    fn statement_node(self) {
+        
+    }
+    fn print_debug_info(&self) {
+    }
+}
+
+pub struct IfExpression {
+    pub token: token::Token, // the 'if' token
+    pub condition: BoxedExpression,
+    pub consequence: BlockStatement,
+    pub alternative: Option<BlockStatement>,
+}
+
+impl Node for IfExpression{
+    fn token_literal(&self) -> String {
+        return self.token.literal.clone();
+    }
+    fn string(&self) -> String {
+        let mut out = String::from("if");
+        out.push_str(self.condition.string().as_str());
+        out.push(' ');
+        out.push_str(self.consequence.string().as_str());
+        if let Some(alternative) = &self.alternative {
+            out.push_str(format!("else {}",alternative.string()).as_str());
+        }
+        return out;
+    }
+}
+
+impl Expression for IfExpression {
+     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn expression_node(&self) {
+        
+    }
+   
+}
+
 mod tests {
     #[test]
     fn test_string_method_by_node_trait() {
