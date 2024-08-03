@@ -14,7 +14,7 @@ pub fn start() {
         stdin()
             .read_line(&mut input)
             .expect("can not read user input");
-        let mut lexer = lexer::Lexer::new(&input);
+        let mut lexer: lexer::Lexer = lexer::Lexer::new(&input);
         let mut token: token::Token = lexer.next_token();
         while token.toke_type != token::EOF {
             println!(

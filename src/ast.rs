@@ -56,7 +56,7 @@ impl Program {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug,Clone)]
 pub struct Identifier {
     pub token: token::Token,
     pub value: String,
@@ -308,11 +308,8 @@ impl Statement for BlockStatement{
     fn as_any(&self) -> &dyn Any {
        self 
     }
-    fn statement_node(self) {
-        
-    }
-    fn print_debug_info(&self) {
-    }
+    fn statement_node(self) {}
+    fn print_debug_info(&self) {}
 }
 
 pub struct IfExpression {
@@ -342,10 +339,42 @@ impl Expression for IfExpression {
      fn as_any(&self) -> &dyn Any {
         self
     }
-    fn expression_node(&self) {
-        
+    fn expression_node(&self) {}
+}
+
+pub struct FunctionLiteral{
+   pub token: token::Token,
+   pub parameters: Vec<Identifier>,
+   pub body: BlockStatement,
+}
+
+impl Node for FunctionLiteral {
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
     }
-   
+    fn string(&self) -> String {
+        let out: String;
+        let mut params:Vec<String> = Vec::new();
+
+        for p in self.parameters.iter(){
+            params.push(p.string().clone())
+        }
+        out = format!(
+            "{}({}) {}",
+            self.token_literal(),
+            params.join(", "),
+            self.body.string()
+            );
+        return out;
+    }
+}
+
+impl Expression for FunctionLiteral {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn expression_node(&self) { }
 }
 
 mod tests {
