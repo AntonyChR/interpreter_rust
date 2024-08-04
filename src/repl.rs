@@ -2,7 +2,8 @@
 use std::io::{stdin, stdout, Write};
 
 use crate::lexer;
-use crate::token;
+use crate::parser;
+use crate::ast;
 
 const PROMPT: &str = ">> ";
 
@@ -10,18 +11,24 @@ pub fn start() {
     loop {
         print!("{}", PROMPT);
         stdout().flush().expect("failed to flush stdout");
-        let mut input = String::new();
-        stdin()
-            .read_line(&mut input)
+        let mut input:String = String::new();
+        stdin().read_line(&mut input)
             .expect("can not read user input");
-        let mut lexer: lexer::Lexer = lexer::Lexer::new(&input);
-        let mut token: token::Token = lexer.next_token();
-        while token.toke_type != token::EOF {
-            println!(
-                "token type:\"{}\", literal: \"{}\"",
-                token.toke_type, token.literal
-            );
-            token = lexer.next_token();
+        let lexer: lexer::Lexer = lexer::Lexer::new(&input);
+        let mut parser:parser::Parser = parser::Parser::new(lexer);
+        let program:ast::Program = parser.parse_program().expect("error parsing program");
+        if parser.get_errors().len() != 0 {
+            print_parser_errors(parser.get_errors());
+            continue;
         }
+        print!("{}\n", program.string())
+   }
+}
+
+fn print_parser_errors(errors: Vec<String>){
+    println!(" parser errors:");
+    for msg in errors.iter(){
+        println!("\t{}",msg);
     }
+
 }

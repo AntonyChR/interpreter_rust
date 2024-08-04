@@ -12,7 +12,6 @@ pub trait Node {
 pub trait Statement: Node {
     fn statement_node(self);
     fn as_any(&self) -> &dyn Any;
-    fn print_debug_info(&self);
 }
 
 pub trait Expression: Node {
@@ -37,9 +36,9 @@ impl Node for Program {
         }
     }
     fn string(&self) -> String {
-        let mut a:String = String::new();
-        for stmt in self.statements.iter(){
-            println!("{}",stmt.string());
+        let mut a: String = String::new();
+        for stmt in self.statements.iter() {
+            println!("{}", stmt.string());
             a.push_str(stmt.string().as_str())
         }
         return a;
@@ -47,7 +46,7 @@ impl Node for Program {
 }
 
 impl Program {
-    fn string(&self) -> String {
+    pub fn string(&self) -> String {
         let mut out = String::new();
         for stmt in self.statements.iter() {
             out.push_str(stmt.string().as_str());
@@ -56,7 +55,7 @@ impl Program {
     }
 }
 
-#[derive(Debug,Clone)]
+#[derive(Debug, Clone)]
 pub struct Identifier {
     pub token: token::Token,
     pub value: String,
@@ -90,22 +89,13 @@ impl Expression for Identifier {
 pub struct LetStatement {
     pub token: token::Token,
     pub name: Identifier,
-    pub value: Identifier,
+    pub value: BoxedExpression, 
 }
 
 impl Statement for LetStatement {
     fn statement_node(self) {}
     fn as_any(&self) -> &dyn Any {
         self
-    }
-
-    fn print_debug_info(&self) {
-        println!("");
-        println!("Token -> {:?}", self.token);
-        println!("value -> {:?}", self.value);
-        println!("name ->");
-        println!("    name.value ->{}", self.name.value);
-        println!("    name.token-> {:?}", self.name.token);
     }
 }
 
@@ -148,10 +138,6 @@ impl Statement for ReturnStatement {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn print_debug_info(&self) {
-        println!("");
-        println!("Token -> {:?}", self.token);
-    }
 }
 
 // expression statement
@@ -177,10 +163,6 @@ impl Statement for ExpressionStatement {
     fn statement_node(self) {}
     fn as_any(&self) -> &dyn Any {
         self
-    }
-    fn print_debug_info(&self) {
-        println!("");
-        println!("Token -> {:?}", self.token);
     }
 }
 
@@ -273,25 +255,21 @@ impl Node for Boolean {
     fn string(&self) -> String {
         self.token.literal.clone()
     }
-    
 }
 
 impl Expression for Boolean {
-    fn expression_node(&self) {
-        
-    }
+    fn expression_node(&self) {}
     fn as_any(&self) -> &dyn Any {
         self
     }
- 
 }
 
-pub struct BlockStatement{
+pub struct BlockStatement {
     pub token: token::Token,
     pub statements: Vec<BoxedStatement>,
 }
 
-impl Node for BlockStatement{
+impl Node for BlockStatement {
     fn token_literal(&self) -> String {
         return self.token.literal.clone();
     }
@@ -304,12 +282,11 @@ impl Node for BlockStatement{
     }
 }
 
-impl Statement for BlockStatement{
+impl Statement for BlockStatement {
     fn as_any(&self) -> &dyn Any {
-       self 
+        self
     }
     fn statement_node(self) {}
-    fn print_debug_info(&self) {}
 }
 
 pub struct IfExpression {
@@ -319,7 +296,7 @@ pub struct IfExpression {
     pub alternative: Option<BlockStatement>,
 }
 
-impl Node for IfExpression{
+impl Node for IfExpression {
     fn token_literal(&self) -> String {
         return self.token.literal.clone();
     }
@@ -329,23 +306,23 @@ impl Node for IfExpression{
         out.push(' ');
         out.push_str(self.consequence.string().as_str());
         if let Some(alternative) = &self.alternative {
-            out.push_str(format!("else {}",alternative.string()).as_str());
+            out.push_str(format!("else {}", alternative.string()).as_str());
         }
         return out;
     }
 }
 
 impl Expression for IfExpression {
-     fn as_any(&self) -> &dyn Any {
+    fn as_any(&self) -> &dyn Any {
         self
     }
     fn expression_node(&self) {}
 }
 
-pub struct FunctionLiteral{
-   pub token: token::Token,
-   pub parameters: Vec<Identifier>,
-   pub body: BlockStatement,
+pub struct FunctionLiteral {
+    pub token: token::Token,
+    pub parameters: Vec<Identifier>,
+    pub body: BlockStatement,
 }
 
 impl Node for FunctionLiteral {
@@ -354,9 +331,9 @@ impl Node for FunctionLiteral {
     }
     fn string(&self) -> String {
         let out: String;
-        let mut params:Vec<String> = Vec::new();
+        let mut params: Vec<String> = Vec::new();
 
-        for p in self.parameters.iter(){
+        for p in self.parameters.iter() {
             params.push(p.string().clone())
         }
         out = format!(
@@ -364,7 +341,7 @@ impl Node for FunctionLiteral {
             self.token_literal(),
             params.join(", "),
             self.body.string()
-            );
+        );
         return out;
     }
 }
@@ -374,7 +351,33 @@ impl Expression for FunctionLiteral {
         self
     }
 
-    fn expression_node(&self) { }
+    fn expression_node(&self) {}
+}
+
+pub struct CallExpression {
+    pub token: token::Token,
+    pub function: BoxedExpression,
+    pub arguments: Vec<BoxedExpression>,
+}
+
+impl Node for CallExpression {
+    fn string(&self) -> String {
+        let mut args: Vec<String> = Vec::new();
+        for exp in self.arguments.iter() {
+            args.push(exp.string());
+        }
+        format!("{}({})", self.function.string(), args.join(", "))
+    }
+    fn token_literal(&self) -> String {
+        self.token.literal.clone()
+    }
+}
+
+impl Expression for CallExpression {
+    fn expression_node(&self) {}
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 mod tests {
@@ -396,13 +399,13 @@ mod tests {
                     },
                     value: "myVar".to_string(),
                 },
-                value: ast::Identifier {
+                value: Box::new(ast::Identifier {
                     token: token::Token {
                         toke_type: token::IDENT.to_string(),
                         literal: "anotherVar".to_string(),
                     },
                     value: "anotherVar".to_string(),
-                },
+                }),
             })],
         };
 
