@@ -1,12 +1,22 @@
 #![allow(dead_code)]
 
+use crate::token;
 use std::any::Any;
 
-use crate::token;
-
-pub trait Node {
+pub trait Node: Any {
     fn token_literal(&self) -> String;
     fn string(&self) -> String;
+}
+
+// TODO: refactor as_any
+pub trait AsAny {
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: Any> AsAny for T {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub trait Statement: Node {
@@ -17,6 +27,7 @@ pub trait Statement: Node {
 pub trait Expression: Node {
     fn expression_node(&self);
     fn as_any(&self) -> &dyn Any;
+    fn as_node(&self) -> &dyn Node;
 }
 
 pub type BoxedStatement = Box<dyn Statement>;
@@ -83,13 +94,16 @@ impl Expression for Identifier {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn as_node(&self) -> &dyn Node {
+        self
+    }
 }
 
 // concrete statements
 pub struct LetStatement {
     pub token: token::Token,
     pub name: Identifier,
-    pub value: BoxedExpression, 
+    pub value: BoxedExpression,
 }
 
 impl Statement for LetStatement {
@@ -184,6 +198,9 @@ impl Expression for IntegerLiteral {
     fn as_any(&self) -> &dyn Any {
         self
     }
+    fn as_node(&self) -> &dyn Node {
+        self
+    }
     fn expression_node(&self) {}
 }
 
@@ -210,6 +227,9 @@ impl Expression for PrefixExpression {
         self
     }
     fn expression_node(&self) {}
+    fn as_node(&self) -> &dyn Node {
+        self
+    }
 }
 
 pub struct InfixExpression {
@@ -241,6 +261,9 @@ impl Expression for InfixExpression {
         self
     }
     fn expression_node(&self) {}
+    fn as_node(&self) -> &dyn Node {
+        self
+    }
 }
 
 pub struct Boolean {
@@ -260,6 +283,9 @@ impl Node for Boolean {
 impl Expression for Boolean {
     fn expression_node(&self) {}
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_node(&self) -> &dyn Node {
         self
     }
 }
@@ -317,6 +343,9 @@ impl Expression for IfExpression {
         self
     }
     fn expression_node(&self) {}
+    fn as_node(&self) -> &dyn Node {
+        self
+    }
 }
 
 pub struct FunctionLiteral {
@@ -352,6 +381,9 @@ impl Expression for FunctionLiteral {
     }
 
     fn expression_node(&self) {}
+    fn as_node(&self) -> &dyn Node {
+        self
+    }
 }
 
 pub struct CallExpression {
@@ -376,6 +408,9 @@ impl Node for CallExpression {
 impl Expression for CallExpression {
     fn expression_node(&self) {}
     fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn as_node(&self) -> &dyn Node {
         self
     }
 }
