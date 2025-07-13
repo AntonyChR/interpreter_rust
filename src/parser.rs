@@ -1409,9 +1409,9 @@ mod tests {
 
     #[test]
     fn test_call_expression_parsing(){
-        let input = "add(1, 2*3, 4+5);";
+        let input:&str = "add(1, 2*3, 4+5);";
         let l:lexer::Lexer = lexer::Lexer::new(input);
-        let mut p = Parser::new(l);
+        let mut p:Parser = Parser::new(l);
         let program:ast::Program= p.parse_program().expect("error parsing program");
         check_parser_errors(&p);
 
@@ -1466,6 +1466,4 @@ mod tests {
             PrimitiveType::Int(5)
             );
     }
-
-
 }

@@ -108,9 +108,7 @@ impl<'a> Lexer<'a> {
                 } else if is_digit(self.ch) {
                     token = Token::new(INT, &self.read_number());
                     return token;
-                } else {
-                    return Token::new(ILLEGAL, &self.ch);
-                }
+                } else { return Token::new(ILLEGAL, &self.ch); }
             }
         }
         self.read_char();

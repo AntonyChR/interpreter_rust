@@ -4,15 +4,20 @@ mod parser;
 mod repl;
 mod token;
 mod utils;
-fn main() {
-    let a = r"
+mod object;
+mod evaluator;
+
+const BANNER:&str = r"
   ______                           
  |  ____|                          
  | |__   _ __ ___  _ __ ___   __ _ 
  |  __| | '_ ` _ \| '_ ` _ \ / _` |
  | |____| | | | | | | | | | | (_| |
- |______|_| |_| |_|_| |_| |_|\__,_| 1.0 
+ |______|_| |_| |_|_| |_| |_|\__,_| 0.1 
 ";
-    println!("{a}");
+ 
+fn main() {
+    println!("{BANNER}");
     repl::start();
 }
+

@@ -3,21 +3,12 @@
 use crate::token;
 use std::any::Any;
 
-pub trait Node: Any {
+pub trait Node {
     fn token_literal(&self) -> String;
     fn string(&self) -> String;
 }
 
 // TODO: refactor as_any
-pub trait AsAny {
-    fn as_any(&self) -> &dyn Any;
-}
-
-impl<T: Any> AsAny for T {
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
 
 pub trait Statement: Node {
     fn statement_node(self);

@@ -12,8 +12,7 @@ pub fn start() {
         print!("{}", PROMPT);
         stdout().flush().expect("failed to flush stdout");
         let mut input:String = String::new();
-        stdin().read_line(&mut input)
-            .expect("can not read user input");
+        stdin().read_line(&mut input).expect("can not read user input");
         let lexer: lexer::Lexer = lexer::Lexer::new(&input);
         let mut parser:parser::Parser = parser::Parser::new(lexer);
         let program:ast::Program = parser.parse_program().expect("error parsing program");
