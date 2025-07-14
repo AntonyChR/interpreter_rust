@@ -61,25 +61,25 @@ impl<'a> Parser<'a> {
             infix_parse_fns: HashMap::new(),
         };
 
-        p.register_prefix(token::IDENT.to_string(), Self::parse_identifier);
-        p.register_prefix(token::INT.to_string(), Self::parse_integer_literal);
-        p.register_prefix(token::BANG.to_string(), Self::parse_prefix_expression);
-        p.register_prefix(token::MINUS.to_string(), Self::parse_prefix_expression);
-        p.register_prefix(token::IF.to_string(), Self::parse_if_expression);
-        p.register_prefix(token::FALSE.to_string(), Self::parse_boolean_expression);
-        p.register_prefix(token::TRUE.to_string(), Self::parse_boolean_expression);
-        p.register_prefix(token::LPAREN.to_string(), Self::parse_grouped_expression);
-        p.register_prefix(token::FUNCTION.to_string(), Self::parse_function_literal);
+        p.register_prefix(token::IDENT.to_string(), Parser::parse_identifier);
+        p.register_prefix(token::INT.to_string(), Parser::parse_integer_literal);
+        p.register_prefix(token::BANG.to_string(), Parser::parse_prefix_expression);
+        p.register_prefix(token::MINUS.to_string(), Parser::parse_prefix_expression);
+        p.register_prefix(token::IF.to_string(), Parser::parse_if_expression);
+        p.register_prefix(token::FALSE.to_string(), Parser::parse_boolean_expression);
+        p.register_prefix(token::TRUE.to_string(), Parser::parse_boolean_expression);
+        p.register_prefix(token::LPAREN.to_string(), Parser::parse_grouped_expression);
+        p.register_prefix(token::FUNCTION.to_string(), Parser::parse_function_literal);
 
-        p.register_infix(token::PLUS.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::MINUS.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::SLASH.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::ASTERISK.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::EQ.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::NOT_EQ.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::LT.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::GT.to_string(), Self::parse_infix_expression);
-        p.register_infix(token::LPAREN.to_string(), Self::parse_call_expression);
+        p.register_infix(token::PLUS.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::MINUS.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::SLASH.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::ASTERISK.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::EQ.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::NOT_EQ.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::LT.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::GT.to_string(), Parser::parse_infix_expression);
+        p.register_infix(token::LPAREN.to_string(), Parser::parse_call_expression);
 
         // Initialize peek_token and current_token
         p.next_token();
