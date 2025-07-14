@@ -1,3 +1,4 @@
+pub mod ast_enum;
 mod ast;
 mod lexer;
 mod parser;

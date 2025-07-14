@@ -2,7 +2,7 @@
 
 pub type TokenType = String;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Token {
     pub toke_type: TokenType,
     pub literal: String,

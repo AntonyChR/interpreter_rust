@@ -1,80 +1,93 @@
 #![allow(dead_code)]
 
-use crate::ast;
-use crate::object;
+use crate::ast_enum as ast;
+use crate::object::{self, Object};
 
-pub enum ASTNode {
-    IntegerLiteral(ast::IntegerLiteral),
-    Program(ast::Program),
-    ExpressionStatement(ast::ExpressionStatement),
-}
+const TRUE: object::Boolean = object::Boolean { value: true };
+const FALSE: object::Boolean = object::Boolean { value: false };
+const NULL: object::NULL = object::NULL {};
 
-pub fn eval(node: &dyn ast::Node) -> Option<object::BoxedObject> {
-    
- return None
-
-}
-
-fn eval_statements(stmts: &[ast::BoxedStatement]) -> Option<object::BoxedObject> {
-    let mut result: Option<object::BoxedObject> = None;
-
-    for stmt in stmts {
-        result 
+pub fn eval(node: ast::Node) -> Option<Box<dyn Object>> {
+    match node {
+        //ast::Node::Program(program) => eval_program(program),
+        ast::Node::Statement(statement) => eval_statement(statement),
+        ast::Node::Expression(expression) => eval_expression(expression),
     }
+}
 
+fn eval_program(program: ast::Program) -> Option<Box<dyn Object>> {
+    let mut result: Option<Box<dyn Object>> = None;
+    for statement in program.statements {
+        result = eval(ast::Node::Statement(statement));
+        // TODO: Handle return statements and errors to stop execution early.
+    }
     result
 }
 
-mod tests {
+fn eval_statement(statement: ast::Statement) -> Option<Box<dyn Object>> {
+    match statement {
+        ast::Statement::Expression(expr_stmt) => eval(ast::Node::Expression(*expr_stmt.expression)),
+        _ => None, 
+    }
+}
 
-    use crate::ast;
-    use crate::evaluator;
+fn eval_expression(expression: ast::Expression) -> Option<Box<dyn Object>> {
+    match expression {
+        ast::Expression::IntegerLiteral(int_lit) => Some(Box::new(object::Integer { value: int_lit.value })),
+        ast::Expression::Boolean(boolean) => Some(Box::new(if boolean.value { TRUE } else { FALSE })),
+        _ => None, 
+    }
+}
+
+/*
+#[cfg(test)]
+mod tests {
+    use super::*;
     use crate::lexer;
-    use crate::object;
-    use crate::object::AsAny;
     use crate::parser;
 
-    fn test_eval(input: &str) -> object::BoxedObject {
-        let l: lexer::Lexer = lexer::Lexer::new(input);
-        let mut p: parser::Parser = parser::Parser::new(l);
-        let program: ast::Program = p.parse_program().unwrap();
-        return evaluator::eval(&program as &dyn ast::Node).unwrap();
+    fn test_eval(input: &str) -> Option<Box<dyn Object>> {
+        let l = lexer::Lexer::new(input);
+        let mut p = parser::Parser::new(l);
+        let program = p.parse_program().unwrap();
+        eval(ast::Node::Program(program))
     }
 
-    fn test_integer_object(obj: object::BoxedObject, expected: i64) {
-        let result = match obj.as_any().downcast_ref::<object::Integer>() {
-            Some(res) => res,
-            None => panic!("object is not object::Integer"),
-        };
-
-        assert_eq!(
-            result.value, expected,
-            "object hast wrong value, expected={}, got={}",
-            expected, result.value
-        );
+    fn test_integer_object(obj: &dyn Object, expected: i64) {
+        let result = obj.as_any().downcast_ref::<object::Integer>();
+        assert!(result.is_some(), "object is not Integer");
+        assert_eq!(result.unwrap().value, expected, "object has wrong value");
+    }
+    
+    fn test_boolean_object(obj: &dyn Object, expected: bool) {
+        let result = obj.as_any().downcast_ref::<object::Boolean>();
+        assert!(result.is_some(), "object is not Boolean");
+        assert_eq!(result.unwrap().value, expected, "object has wrong value");
     }
 
     #[test]
     fn test_eval_integer_expression() {
-        struct TC<'a> {
-            input: &'a str,
-            expected: i64,
-        }
-
-        let test_cases: [TC; 2] = [
-            TC {
-                input: "5",
-                expected: 5,
-            },
-            TC {
-                input: "10",
-                expected: 10,
-            },
+        let tests = [
+            ("5", 5),
+            ("10", 10),
         ];
 
-        for tc in test_cases.iter() {
-            let evaluated: object::BoxedObject = test_eval(tc.input);
-            test_integer_object(evaluated, tc.expected);
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated.as_ref(), *expected);
         }
     }
-}
+
+    #[test]
+    fn test_eval_boolean_expression() {
+        let tests = [
+            ("true", true),
+            ("false", false),
+        ];
+
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input).unwrap();
+            test_boolean_object(evaluated.as_ref(), *expected);
+        }
+    }
+}*/

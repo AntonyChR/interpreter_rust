@@ -3,7 +3,8 @@ use std::io::{stdin, stdout, Write};
 
 use crate::lexer;
 use crate::parser;
-use crate::ast;
+use crate::ast_enum as ast;
+
 
 const PROMPT: &str = ">> ";
 
