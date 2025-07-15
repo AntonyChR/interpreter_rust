@@ -5,6 +5,7 @@ use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
+    Program(Program),
     Statement(Statement),
     Expression(Expression),
 }
@@ -14,6 +15,7 @@ impl fmt::Display for Node {
         match self {
             Node::Statement(s) => write!(f, "{}", s),
             Node::Expression(e) => write!(f, "{}", e),
+            Node::Program(p) => write!(f, "{}", p),
         }
     }
 }
@@ -68,7 +70,7 @@ impl fmt::Display for Expression {
 
 // --- Root Node ---
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Program {
     pub statements: Vec<Statement>,
 }

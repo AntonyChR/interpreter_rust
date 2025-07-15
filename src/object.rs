@@ -12,16 +12,7 @@ pub type BoxedObject = Box<dyn Object>;
 pub trait Object:Any{
     fn object_type(&self)->ObjectType;
     fn inspect(&self)->String;
-}
-
-pub trait AsAny {
     fn as_any(&self) -> &dyn Any;
-}
-
-impl<T:Any + 'static> AsAny for T{
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
 }
 
 pub struct Integer{
@@ -34,6 +25,9 @@ impl Object for Integer {
     }
     fn inspect(&self)->String {
         format!("{}", self.value)
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
@@ -48,6 +42,9 @@ impl Object for Boolean{
     fn inspect(&self)->String {
         format!("{}", self.value)
     }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 pub struct NULL {}
@@ -58,6 +55,9 @@ impl Object for NULL {
     }
     fn inspect(&self)->String {
         String::from(NULL_OBJ)
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
     }
 }
 
