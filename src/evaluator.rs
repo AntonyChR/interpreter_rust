@@ -47,23 +47,27 @@ fn eval_expression(expression: ast::Expression) -> Option<Box<dyn Object>> {
 fn eval_prefix_expression(operator: String, right: Box<dyn Object>) -> Option<Box<dyn Object>> {
     match operator.as_str() {
         token::BANG => eval_bang_operator_expression(right),
+        token::MINUS => eval_minus_prefix_operator_expression(right),
         _ => return Some(Box::new(NULL)),
     }
 }
 
 #[rustfmt::skip]
 fn eval_bang_operator_expression(right: Box<dyn Object>) -> Option<Box<dyn Object>> {
-    println!("Evaluating bang operator on: {}", right.inspect());
+    // check if the right operand is a Boolean
     let bool_obj: Option<&object::Boolean> = right.as_any().downcast_ref::<object::Boolean>();
     if let Some(bool_obj) = bool_obj {
         return Some(Box::new(object::Boolean {value: !bool_obj.value,}));
     }
 
+    // check if the right operand is a NULL
     let null_obj: Option<&object::NULL> = right.as_any().downcast_ref::<object::NULL>();
     if null_obj.is_some() {
         return Some(Box::new(TRUE));
     }
 
+    // check if the right operand is an Integer
+    // if it is 0, return TRUE, otherwise return FALSE
     let int_obj: Option<&object::Integer> = right.as_any().downcast_ref::<object::Integer>();
     if let Some(int_obj) = int_obj {
         if int_obj.value == 0 {
@@ -75,6 +79,18 @@ fn eval_bang_operator_expression(right: Box<dyn Object>) -> Option<Box<dyn Objec
     return Some(Box::new(FALSE));
 }
 
+fn eval_minus_prefix_operator_expression(right: Box<dyn Object>) -> Option<Box<dyn Object>> {
+    // check if the right operand is an Integer
+    let int_obj: Option<&object::Integer> = right.as_any().downcast_ref::<object::Integer>();
+    if let Some(int_obj) = int_obj {
+        return Some(Box::new(object::Integer {
+            value: -int_obj.value,
+        }));
+    }
+
+    // if not an Integer, return NULL
+    Some(Box::new(NULL))
+}
 #[cfg(test)]
 mod tests {
     use crate::object::{self, Object};
@@ -88,7 +104,6 @@ mod tests {
         let l = lexer::Lexer::new(input);
         let mut p = parser::Parser::new(l);
         let program = p.parse_program().unwrap();
-        println!("---------------- parsed program -------------");
         eval(ast::Node::Program(program))
     }
 
@@ -136,14 +151,16 @@ mod tests {
         }
     }
 
+    #[rustfmt::skip]
     #[test]
     fn test_bang_operator() {
         let tests = [
-            // ("!true", false),
-            // ("!false", true),
-            // ("!!true", true),
-            // ("!!false", false),
-            // ("!null", true),
+            ("!true", false),
+            ("!false", true),
+            ("!!true", true),
+            ("!!false", false),
+            ("!null", true),
+            ("!!null", false),
             ("!5", false),
             ("!!5", true),
             ("!0", true),
@@ -152,6 +169,23 @@ mod tests {
         for (input, expected) in tests.iter() {
             let evaluated = test_eval(input).unwrap();
             test_boolean_object(evaluated, *expected);
+        }
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn test_integer_expression() {
+        let tests = [
+            ("5", 5), 
+            ("10", 10), 
+            ("0", 0), 
+            ("-5", -5), 
+            ("-10", -10)
+            ];
+
+        for (input, expected) in tests.iter() {
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated, *expected);
         }
     }
 }
