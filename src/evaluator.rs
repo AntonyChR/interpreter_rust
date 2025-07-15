@@ -32,7 +32,6 @@ fn eval_statements(statements: Vec<ast::Statement>) -> Option<Box<dyn Object>> {
 
 #[rustfmt::skip]
 fn eval_expression(expression: ast::Expression) -> Option<Box<dyn Object>> {
-    println!("----------eval expression ---------: {:?}", expression);
     match expression {
         ast::Expression::IntegerLiteral(int_lit) => Some(Box::new(object::Integer {value: int_lit.value,})),
         ast::Expression::Boolean(boolean) => Some(if boolean.value {Box::new(TRUE)} else {Box::new(FALSE)}),
@@ -52,20 +51,28 @@ fn eval_prefix_expression(operator: String, right: Box<dyn Object>) -> Option<Bo
     }
 }
 
+#[rustfmt::skip]
 fn eval_bang_operator_expression(right: Box<dyn Object>) -> Option<Box<dyn Object>> {
     println!("Evaluating bang operator on: {}", right.inspect());
     let bool_obj: Option<&object::Boolean> = right.as_any().downcast_ref::<object::Boolean>();
     if let Some(bool_obj) = bool_obj {
-        return Some(Box::new(object::Boolean {
-            value: !bool_obj.value,
-        }));
+        return Some(Box::new(object::Boolean {value: !bool_obj.value,}));
     }
+
     let null_obj: Option<&object::NULL> = right.as_any().downcast_ref::<object::NULL>();
     if null_obj.is_some() {
         return Some(Box::new(TRUE));
     }
 
-    return None;
+    let int_obj: Option<&object::Integer> = right.as_any().downcast_ref::<object::Integer>();
+    if let Some(int_obj) = int_obj {
+        if int_obj.value == 0 {
+            return Some(Box::new(TRUE));
+        }
+        return Some(Box::new(FALSE));
+    }
+
+    return Some(Box::new(FALSE));
 }
 
 #[cfg(test)]
@@ -136,10 +143,10 @@ mod tests {
             // ("!false", true),
             // ("!!true", true),
             // ("!!false", false),
-            ("!null", true),
-            // ("!5", false),
-            // ("!!5", true),
-            // ("!0", true),
+            // ("!null", true),
+            ("!5", false),
+            ("!!5", true),
+            ("!0", true),
         ];
 
         for (input, expected) in tests.iter() {
