@@ -1,4 +1,3 @@
-
 const INTEGER_OBJ: &str = "INTEGER";
 const BOOLEAN_OBJ: &str = "BOOLEAN";
 const NULL_OBJ: &str = "NULL";
@@ -8,7 +7,7 @@ type ObjectType = String;
 pub enum ObjectEnum {
     Integer(Integer),
     Boolean(Boolean),
-    Null,
+    Null(Null),
 }
 
 impl Object {
@@ -38,3 +37,6 @@ pub struct Integer {
 pub struct Boolean {
     pub value: bool,
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Null {}
