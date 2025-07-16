@@ -2,28 +2,29 @@
 
 use std::any::Any;
 
-const INTEGER_OBJ: &str = "INTEGER";
-const BOOLEAN_OBJ: &str = "BOOLEAN";
-const NULL_OBJ: &str = "NULL";
+pub const INTEGER_OBJ: &str = "INTEGER";
+pub const BOOLEAN_OBJ: &str = "BOOLEAN";
+pub const NULL_OBJ: &str = "NULL";
 
 type ObjectType = String;
+
 pub type BoxedObject = Box<dyn Object>;
 
-pub trait Object:Any{
-    fn object_type(&self)->ObjectType;
-    fn inspect(&self)->String;
+pub trait Object: Any {
+    fn object_type(&self) -> ObjectType;
+    fn inspect(&self) -> String;
     fn as_any(&self) -> &dyn Any;
 }
 
-pub struct Integer{
+pub struct Integer {
     pub value: i64,
 }
 
 impl Object for Integer {
-    fn object_type(&self)->ObjectType {
+    fn object_type(&self) -> ObjectType {
         String::from(INTEGER_OBJ)
     }
-    fn inspect(&self)->String {
+    fn inspect(&self) -> String {
         format!("{}", self.value)
     }
     fn as_any(&self) -> &dyn Any {
@@ -35,11 +36,11 @@ pub struct Boolean {
     pub value: bool,
 }
 
-impl Object for Boolean{
-    fn object_type(&self)->ObjectType {
+impl Object for Boolean {
+    fn object_type(&self) -> ObjectType {
         String::from(BOOLEAN_OBJ)
     }
-    fn inspect(&self)->String {
+    fn inspect(&self) -> String {
         format!("{}", self.value)
     }
     fn as_any(&self) -> &dyn Any {
@@ -50,14 +51,13 @@ impl Object for Boolean{
 pub struct NULL {}
 
 impl Object for NULL {
-    fn object_type(&self)->ObjectType {
+    fn object_type(&self) -> ObjectType {
         String::from("null")
     }
-    fn inspect(&self)->String {
+    fn inspect(&self) -> String {
         String::from(NULL_OBJ)
     }
     fn as_any(&self) -> &dyn Any {
         self
     }
 }
-

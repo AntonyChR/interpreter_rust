@@ -39,6 +39,11 @@ fn eval_expression(expression: ast::Expression) -> Option<Box<dyn Object>> {
             let right = eval(ast::Node::Expression(*prefix_expr.right)).unwrap();
             eval_prefix_expression(prefix_expr.operator, right)
         },
+        ast::Expression::Infix(infix_expr) =>{
+            let left = eval(ast::Node::Expression(*infix_expr.left)).unwrap();
+            let right = eval(ast::Node::Expression(*infix_expr.right)).unwrap();
+            return eval_infix_expression(infix_expr.operator, left, right);
+        }
         ast::Expression::Identifier(ident) if ident.value == "null" => Some(Box::new(NULL)),
         _ => None,
     }
@@ -49,6 +54,60 @@ fn eval_prefix_expression(operator: String, right: Box<dyn Object>) -> Option<Bo
         token::BANG => eval_bang_operator_expression(right),
         token::MINUS => eval_minus_prefix_operator_expression(right),
         _ => return Some(Box::new(NULL)),
+    }
+}
+
+#[rustfmt::skip]
+fn eval_infix_expression(operator: String, left: Box<dyn Object>, right: Box<dyn Object> ) -> Option<Box<dyn Object>> {
+    if left.object_type() == String::from(object::INTEGER_OBJ) && 
+       left.object_type() == String::from(object::INTEGER_OBJ)
+    {
+        return eval_integer_infix_expression(operator, left, right);
+    }
+
+    if operator == token::EQ {
+        if left.object_type() == String::from(object::BOOLEAN_OBJ) &&
+           left.object_type() == String::from(object::BOOLEAN_OBJ)
+        {
+            let left_bool: bool = left.as_any().downcast_ref::<object::Boolean>().unwrap().value;
+            let right_bool: bool= right.as_any().downcast_ref::<object::Boolean>().unwrap().value;
+            return Some(Box::new(object::Boolean{value: left_bool == right_bool}))
+        }
+    }
+    if operator == token::NOT_EQ {
+        if left.object_type() == String::from(object::BOOLEAN_OBJ) &&
+           left.object_type() == String::from(object::BOOLEAN_OBJ)
+        {
+            let left_bool: bool = left.as_any().downcast_ref::<object::Boolean>().unwrap().value;
+            let right_bool: bool= right.as_any().downcast_ref::<object::Boolean>().unwrap().value;
+            return Some(Box::new(object::Boolean{value: left_bool != right_bool}))
+        }
+    }
+
+
+    // match operator.as_str() {
+    //     token::EQ => Some(Box::new(object::Boolean{value: left.T== right}))
+    // }
+
+    Some(Box::new(NULL))
+}
+
+#[rustfmt::skip]
+//fn eval_integer_infix_expression(operator: String, left: i64, right: i64) -> Option<Box<dyn Object>> {
+fn eval_integer_infix_expression(operator: String, left: Box<dyn Object>, right: Box<dyn Object>) -> Option<Box<dyn Object>> {
+    let left_int: i64 = left.as_any().downcast_ref::<object::Integer>().unwrap().value;
+    let right_int: i64 = right.as_any().downcast_ref::<object::Integer>().unwrap().value;
+    match operator.as_str() {
+        token::PLUS => Some(Box::new(object::Integer{value: left_int + right_int})),
+        token::MINUS => Some(Box::new(object::Integer{value: left_int - right_int})),
+        token::ASTERISK => Some(Box::new(object::Integer{value: left_int * right_int})),
+        token::SLASH => Some(Box::new(object::Integer{value: left_int / right_int})),
+
+        token::LT => Some(Box::new(object::Boolean{value: left_int < right_int})),
+        token::GT => Some(Box::new(object::Boolean{value: left_int > right_int})),
+        token::EQ => Some(Box::new(object::Boolean{value: left_int == right_int})),
+        token::NOT_EQ => Some(Box::new(object::Boolean{value: left_int != right_int})),
+        _=>  Some(Box::new(NULL))
     }
 }
 
@@ -143,7 +202,27 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests = [("true", true), ("false", false)];
+        let tests = [
+            ("true", true),
+            ("false", false),
+            ("1 < 2", true),
+            ("1 > 2", false),
+            ("1 < 1", false),
+            ("1 > 1", false),
+            ("1 == 1", true),
+            ("1 != 1", false),
+            ("1 == 2", false),
+            ("1 != 2", true),
+            ("true == true", true),
+            ("false == false", true),
+            ("true == false", false),
+            ("true != false", true),
+            ("false != true", true),
+            ("(1 < 2) == true", true),
+            ("(1 < 2) == false", false),
+            ("(1 > 2) == true", false),
+            ("(1 > 2) == false", true),
+        ];
 
         for (input, expected) in tests.iter() {
             let evaluated = test_eval(input).unwrap();
@@ -180,7 +259,18 @@ mod tests {
             ("10", 10), 
             ("0", 0), 
             ("-5", -5), 
-            ("-10", -10)
+            ("-10", -10),
+            ("5 + 5 + 5 + 5 - 10", 10),
+            ("2 * 2 * 2 * 2 * 2", 32),
+            ("-50 + 100 + -50", 0),
+            ("5 * 2 + 10", 20),
+            ("5 + 2 * 10", 25),
+            ("20 + 2 * -10", 0),
+            ("50 / 2 * 2 + 10", 60),
+            ("2 * (5 + 10)", 30),
+            ("3 * 3 * 3 + 10", 37),
+            ("3 * (3 * 3) + 10", 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
             ];
 
         for (input, expected) in tests.iter() {
