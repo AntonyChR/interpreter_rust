@@ -59,35 +59,31 @@ fn eval_prefix_expression(operator: String, right: Box<dyn Object>) -> Option<Bo
 
 #[rustfmt::skip]
 fn eval_infix_expression(operator: String, left: Box<dyn Object>, right: Box<dyn Object> ) -> Option<Box<dyn Object>> {
+
+    // Check if both left and right are Integer objects and handle arithmetic operations
     if left.object_type() == String::from(object::INTEGER_OBJ) && 
        left.object_type() == String::from(object::INTEGER_OBJ)
     {
         return eval_integer_infix_expression(operator, left, right);
     }
 
-    if operator == token::EQ {
+    // Check if both left and right are Boolean objects and handle equality and inequality
+    if operator == token::EQ || operator == token::NOT_EQ{
         if left.object_type() == String::from(object::BOOLEAN_OBJ) &&
            left.object_type() == String::from(object::BOOLEAN_OBJ)
         {
             let left_bool: bool = left.as_any().downcast_ref::<object::Boolean>().unwrap().value;
             let right_bool: bool= right.as_any().downcast_ref::<object::Boolean>().unwrap().value;
-            return Some(Box::new(object::Boolean{value: left_bool == right_bool}))
+
+            if  operator == token::EQ{
+                return Some(Box::new(object::Boolean{value: left_bool == right_bool}))
+            }
+            if operator == token::NOT_EQ{
+                return Some(Box::new(object::Boolean{value: left_bool != right_bool}))
+
+            }
         }
     }
-    if operator == token::NOT_EQ {
-        if left.object_type() == String::from(object::BOOLEAN_OBJ) &&
-           left.object_type() == String::from(object::BOOLEAN_OBJ)
-        {
-            let left_bool: bool = left.as_any().downcast_ref::<object::Boolean>().unwrap().value;
-            let right_bool: bool= right.as_any().downcast_ref::<object::Boolean>().unwrap().value;
-            return Some(Box::new(object::Boolean{value: left_bool != right_bool}))
-        }
-    }
-
-
-    // match operator.as_str() {
-    //     token::EQ => Some(Box::new(object::Boolean{value: left.T== right}))
-    // }
 
     Some(Box::new(NULL))
 }
@@ -190,6 +186,10 @@ mod tests {
         );
     }
 
+    fn test_null_object(obj: Box<dyn Object>) {
+        let result = obj.as_any().downcast_ref::<object::NULL>();
+        assert!(result.is_some(), "object is not NULL");
+    }
     #[test]
     fn test_eval_integer_expression() {
         let tests = [("5", 5), ("10", 10)];
@@ -276,6 +276,37 @@ mod tests {
         for (input, expected) in tests.iter() {
             let evaluated = test_eval(input).unwrap();
             test_integer_object(evaluated, *expected);
+        }
+    }
+
+    #[rustfmt::skip]
+    #[test]
+    fn test_if_else_expressions() {
+        let return_int_tests = [
+            ("if (true) { 10 }", 10),
+            ("if (1) { 10 }", 10),
+            ("if (1 < 2) { 10 }", 10),
+            ("if (1 > 2) { 10 } else { 20 }", 20),
+            ("if (1 < 2) { 10 } else { 20 }", 10),
+        ];
+
+        let return_null_tests = [
+            "if (false) { 10 }",              
+            "if (1 > 2) { 10 }",
+            "if (1 > 2) { 10 } else { null }",
+            "if (1 < 2) { null } else { 20 }",
+        ];
+
+        // Test cases that should return integers
+        for (input, expected) in return_int_tests.iter() {
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated, *expected);
+        }
+
+        // Test cases that should return null
+        for input in return_null_tests.iter() {
+            let evaluated = test_eval(input).unwrap();
+            test_null_object(evaluated);
         }
     }
 }
