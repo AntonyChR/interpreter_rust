@@ -1,14 +1,17 @@
-pub mod ast_enum;
 mod ast;
+mod ast_enum;
 mod lexer;
+mod object;
 mod parser;
 mod repl;
 mod token;
 mod utils;
-mod object;
-mod evaluator;
 
-const BANNER:&str = r"
+mod evaluator;
+mod evaluator_enum;
+mod object_enum;
+
+const BANNER: &str = r"
   ______                           
  |  ____|                          
  | |__   _ __ ___  _ __ ___   __ _ 
@@ -16,9 +19,8 @@ const BANNER:&str = r"
  | |____| | | | | | | | | | | (_| |
  |______|_| |_| |_|_| |_| |_|\__,_| 0.1 
 ";
- 
+
 fn main() {
     println!("{BANNER}");
     repl::start();
 }
-

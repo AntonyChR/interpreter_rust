@@ -1,8 +1,6 @@
 use crate::token::Token;
 use std::fmt;
 
-// --- Enums to replace Traits ---
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     Program(Program),
@@ -38,8 +36,6 @@ impl fmt::Display for Statement {
         }
     }
 }
-
-
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
@@ -84,13 +80,11 @@ impl fmt::Display for Program {
     }
 }
 
-impl Program{
+impl Program {
     pub fn string(&self) -> String {
         self.to_string()
     }
 }
-
-
 
 // --- Concrete Structs ---
 // These are mostly the same, but fields that were Box<dyn Trait>
@@ -243,13 +237,19 @@ pub struct FunctionLiteral {
 impl fmt::Display for FunctionLiteral {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let params: Vec<String> = self.parameters.iter().map(|p| p.to_string()).collect();
-        write!(f, "{}({}) {}", self.token.literal, params.join(", "), self.body)
+        write!(
+            f,
+            "{}({}) {}",
+            self.token.literal,
+            params.join(", "),
+            self.body
+        )
     }
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallExpression {
-    pub token: Token, // The '(' token
+    pub token: Token,              // The '(' token
     pub function: Box<Expression>, // Identifier or FunctionLiteral
     pub arguments: Vec<Expression>,
 }
@@ -266,33 +266,31 @@ impl fmt::Display for CallExpression {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::token::{Token, LET, IDENT};
+    use crate::token::{Token, IDENT, LET};
 
     #[test]
     fn test_display() {
         let program = Program {
-            statements: vec![
-                Statement::Let(LetStatement {
+            statements: vec![Statement::Let(LetStatement {
+                token: Token {
+                    toke_type: LET.to_string(),
+                    literal: "let".to_string(),
+                },
+                name: Identifier {
                     token: Token {
-                        toke_type: LET.to_string(),
-                        literal: "let".to_string(),
+                        toke_type: IDENT.to_string(),
+                        literal: "myVar".to_string(),
                     },
-                    name: Identifier {
-                        token: Token {
-                            toke_type: IDENT.to_string(),
-                            literal: "myVar".to_string(),
-                        },
-                        value: "myVar".to_string(),
+                    value: "myVar".to_string(),
+                },
+                value: Box::new(Expression::Identifier(Identifier {
+                    token: Token {
+                        toke_type: IDENT.to_string(),
+                        literal: "anotherVar".to_string(),
                     },
-                    value: Box::new(Expression::Identifier(Identifier {
-                        token: Token {
-                            toke_type: IDENT.to_string(),
-                            literal: "anotherVar".to_string(),
-                        },
-                        value: "anotherVar".to_string(),
-                    })),
-                }),
-            ],
+                    value: "anotherVar".to_string(),
+                })),
+            })],
         };
 
         assert_eq!(program.to_string(), "let myVar = anotherVar;");
