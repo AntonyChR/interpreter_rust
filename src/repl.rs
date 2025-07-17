@@ -2,7 +2,8 @@
 use std::io::{stdin, stdout, Write};
 
 use crate::ast_enum as ast;
-use crate::evaluator;
+//use crate::evaluator;
+use crate::evaluator_enum as evaluator;
 use crate::lexer;
 use crate::parser;
 
