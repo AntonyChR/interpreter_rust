@@ -15,6 +15,7 @@ pub fn eval(node: ast::Node) -> Option<object::Object> {
         ast::Node::Expression(expression) => eval_expression(expression),
     }
 }
+
 fn eval_statement(statement: ast::Statement) -> Option<object::Object> {
     match statement {
         ast::Statement::Expression(expr_stmt) => eval_expression(*expr_stmt.expression),
@@ -105,8 +106,8 @@ fn eval_infix_expression(operator: String, left: object::Object, right: object::
 
 #[rustfmt::skip]
 fn eval_integer_infix_expression(operator: String, left: object::Integer, right: object::Integer) -> Option<object::Object> {
-    let left_int = left.value;
-    let right_int = right.value;
+    let left_int: i64 = left.value;
+    let right_int: i64 = right.value;
     match operator.as_str() {
         token::PLUS => Some(object::Object::Integer(object::Integer{value: left_int + right_int})),
         token::MINUS => Some(object::Object::Integer(object::Integer{value: left_int - right_int})),
@@ -125,8 +126,8 @@ fn eval_integer_infix_expression(operator: String, left: object::Integer, right:
 fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
     match right {
         object::Object::Boolean(b) => Some(if b.value { FALSE.clone() } else { TRUE.clone() }),
-        object::Object::Null(_) => Some(TRUE.clone()),
         object::Object::Integer(i) => Some(if i.value == 0 { TRUE.clone() } else { FALSE.clone() }),
+        object::Object::Null(_) => Some(TRUE.clone()),
     }
 }
 
@@ -187,7 +188,7 @@ mod tests {
     }
     #[test]
     fn test_eval_integer_expression() {
-        let tests = [("5", 5), ("10", 10)];
+        let tests: [(&'static str, i64); 2] = [("5", 5), ("10", 10)];
 
         for (input, expected) in tests.iter() {
             let evaluated: object::Object = test_eval(input).unwrap();
@@ -197,7 +198,7 @@ mod tests {
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests = [
+        let tests: [(&'static str, bool); 19] = [
             ("true", true),
             ("false", false),
             ("1 < 2", true),
@@ -228,7 +229,7 @@ mod tests {
     #[rustfmt::skip]
     #[test]
     fn test_bang_operator() {
-        let tests = [
+        let tests: [(&'static str, bool); 9] = [
             ("!true", false),
             ("!false", true),
             ("!!true", true),
@@ -249,7 +250,7 @@ mod tests {
     #[rustfmt::skip]
     #[test]
     fn test_integer_expression() {
-        let tests = [
+        let tests: [(&'static str, i64); 16] = [
             ("5", 5), 
             ("10", 10), 
             ("0", 0), 
@@ -277,7 +278,7 @@ mod tests {
     #[rustfmt::skip]
     #[test]
     fn test_if_else_expressions() {
-        let return_int_tests = [
+        let return_int_tests: [(&'static str, i64); 5] = [
             ("if (true) { 10 }", 10),
             ("if (1) { 10 }", 10),
             ("if (1 < 2) { 10 }", 10),
@@ -285,7 +286,7 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", 10),
         ];
 
-        let return_null_tests = [
+        let return_null_tests: [&'static str; 4] = [
             "if (false) { 10 }",              
             "if (1 > 2) { 10 }",
             "if (1 > 2) { 10 } else { null }",

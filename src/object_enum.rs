@@ -39,4 +39,8 @@ pub struct Boolean {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct Return {
+    pub value: Object,
+}
+#[derive(Debug, Clone, PartialEq)]
 pub struct Null {}
