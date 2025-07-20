@@ -15,6 +15,7 @@ pub fn eval(node: ast::Node) -> Option<Box<dyn Object>> {
         ast::Node::Expression(expression) => eval_expression(expression),
     }
 }
+
 fn eval_statement(statement: ast::Statement) -> Option<Box<dyn Object>> {
     match statement {
         ast::Statement::Expression(expr_stmt) => eval_expression(*expr_stmt.expression),
@@ -316,7 +317,7 @@ mod tests {
     #[rustfmt::skip]
     #[test]
     fn test_if_else_expressions() {
-        let return_int_tests = [
+        let return_int_tests: [(&'static str, i64); 5] = [
             ("if (true) { 10 }", 10),
             ("if (1) { 10 }", 10),
             ("if (1 < 2) { 10 }", 10),
@@ -324,7 +325,7 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", 10),
         ];
 
-        let return_null_tests = [
+        let return_null_tests: [&'static str; 4] = [
             "if (false) { 10 }",              
             "if (1 > 2) { 10 }",
             "if (1 > 2) { 10 } else { null }",

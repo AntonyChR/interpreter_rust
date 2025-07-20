@@ -2,9 +2,9 @@
 use std::io::{stdin, stdout, Write};
 
 use crate::ast_enum as ast;
-//use crate::evaluator;
 use crate::evaluator_enum as evaluator;
 use crate::lexer;
+use crate::object_enum::Object;
 use crate::parser;
 
 const PROMPT: &str = ">> ";
@@ -24,7 +24,7 @@ pub fn start() {
             print_parser_errors(parser.get_errors());
             continue;
         }
-        let evaluated = evaluator::eval(ast::Node::Program(program));
+        let evaluated: Option<Object> = evaluator::eval(ast::Node::Program(program));
         match evaluated {
             Some(obj) => {
                 println!("{}", obj.inspect());

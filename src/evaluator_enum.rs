@@ -168,9 +168,9 @@ fn eval_minus_prefix_operator_expression(right: Object) -> Option<Object> {
 #[cfg(test)]
 mod tests {
     use crate::ast_enum::{self as ast, Program};
-    use crate::evaluator_enum::{eval, tests};
+    use crate::evaluator_enum::eval;
     use crate::lexer;
-    use crate::object_enum::{self as object, Object};
+    use crate::object_enum::Object;
 
     use crate::parser;
 
