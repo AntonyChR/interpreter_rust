@@ -1,11 +1,13 @@
-const INTEGER_OBJ: &str = "INTEGER";
-const BOOLEAN_OBJ: &str = "BOOLEAN";
-const NULL_OBJ: &str = "NULL";
+pub const INTEGER_OBJ: &str = "INTEGER";
+pub const BOOLEAN_OBJ: &str = "BOOLEAN";
+pub const RETURN_OBJ: &str = "RETURN";
+pub const NULL_OBJ: &str = "NULL";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
     Integer(Integer),
     Boolean(Boolean),
+    Return(Return),
     Null(Null),
 }
 
@@ -15,6 +17,7 @@ impl Object {
         match self {
             Object::Integer(_) => INTEGER_OBJ,
             Object::Boolean(_) => BOOLEAN_OBJ,
+            Object::Return(_) => RETURN_OBJ,
             Object::Null(_) => NULL_OBJ,
         }
     }
@@ -23,6 +26,7 @@ impl Object {
         match self {
             Object::Integer(i) => i.value.to_string(),
             Object::Boolean(b) => b.value.to_string(),
+            Object::Return(r) => format!("return {}", r.value.inspect()),
             Object::Null(_) => "null".to_string(),
         }
     }
@@ -39,8 +43,9 @@ pub struct Boolean {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Return {
-    pub value: Object,
-}
-#[derive(Debug, Clone, PartialEq)]
 pub struct Null {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Return {
+    pub value: Box<Object>,
+}
