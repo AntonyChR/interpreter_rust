@@ -2,6 +2,7 @@ pub const INTEGER_OBJ: &str = "INTEGER";
 pub const BOOLEAN_OBJ: &str = "BOOLEAN";
 pub const RETURN_OBJ: &str = "RETURN";
 pub const NULL_OBJ: &str = "NULL";
+pub const ERROR_OBJ: &str = "ERROR";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -9,6 +10,7 @@ pub enum Object {
     Boolean(Boolean),
     Return(Return),
     Null(Null),
+    Error(Error),
 }
 
 #[allow(dead_code)]
@@ -19,6 +21,7 @@ impl Object {
             Object::Boolean(_) => BOOLEAN_OBJ,
             Object::Return(_) => RETURN_OBJ,
             Object::Null(_) => NULL_OBJ,
+            Object::Error(_) => ERROR_OBJ,
         }
     }
 
@@ -28,6 +31,7 @@ impl Object {
             Object::Boolean(b) => b.value.to_string(),
             Object::Return(r) => format!("return {}", r.value.inspect()),
             Object::Null(_) => "null".to_string(),
+            Object::Error(e) => format!("Error: {}", e.message),
         }
     }
 }
@@ -48,4 +52,9 @@ pub struct Null {}
 #[derive(Debug, Clone, PartialEq)]
 pub struct Return {
     pub value: Box<Object>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Error {
+    pub message: String,
 }
