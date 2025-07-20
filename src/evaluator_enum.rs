@@ -1,41 +1,68 @@
 #![allow(dead_code)]
 
 use crate::ast_enum as ast;
-use crate::object_enum as object;
+use crate::object_enum::{self as object, Object};
 use crate::token;
 
-const TRUE: object::Object = object::Object::Boolean(object::Boolean { value: true });
-const FALSE: object::Object = object::Object::Boolean(object::Boolean { value: false });
-const NULL: object::Object = object::Object::Null(object::Null {});
+const TRUE: Object = Object::Boolean(object::Boolean { value: true });
+const FALSE: Object = Object::Boolean(object::Boolean { value: false });
+const NULL: Object = Object::Null(object::Null {});
 
-pub fn eval(node: ast::Node) -> Option<object::Object> {
+pub fn eval(node: ast::Node) -> Option<Object> {
     match node {
-        ast::Node::Program(program) => eval_statements(program.statements),
+        ast::Node::Program(program) => eval_program(program.statements),
         ast::Node::Statement(statement) => eval_statement(statement),
         ast::Node::Expression(expression) => eval_expression(expression),
     }
 }
 
-fn eval_statement(statement: ast::Statement) -> Option<object::Object> {
+fn eval_statement(statement: ast::Statement) -> Option<Object> {
     match statement {
         ast::Statement::Expression(expr_stmt) => eval_expression(*expr_stmt.expression),
-        ast::Statement::Block(block_stmt) => eval_statements(block_stmt.statements),
+        ast::Statement::Block(block_stmt) => eval_block_statement(block_stmt.statements),
+        ast::Statement::Return(return_stmt) => {
+            let res: Object = eval_expression(*return_stmt.return_value.unwrap()).unwrap();
+            Some(Object::Return(object::Return {
+                value: Box::new(res),
+            }))
+        }
+
         _ => None,
     }
 }
 
-fn eval_statements(statements: Vec<ast::Statement>) -> Option<object::Object> {
-    let mut result: Option<object::Object> = None;
+fn eval_program(statements: Vec<ast::Statement>) -> Option<Object> {
+    let mut result: Option<Object> = None;
     for statement in statements {
         result = eval(ast::Node::Statement(statement));
+
+        if result.is_some() {
+            let result_obj = result.clone().unwrap();
+            if let Object::Return(return_obj) = result_obj {
+                // Desempaquetar el valor interno del Return
+                return Some(*return_obj.value);
+            }
+        }
+    }
+    result
+}
+
+fn eval_block_statement(statements: Vec<ast::Statement>) -> Option<Object> {
+    let mut result: Option<Object> = None;
+    for statement in statements {
+        result = eval(ast::Node::Statement(statement));
+
+        if let Some(Object::Return(_)) = result {
+            return result;
+        }
     }
     result
 }
 
 #[rustfmt::skip]
-fn eval_expression(expression: ast::Expression) -> Option<object::Object> {
+fn eval_expression(expression: ast::Expression) -> Option<Object> {
     match expression {
-        ast::Expression::IntegerLiteral(int_lit) => Some(object::Object::Integer(object::Integer {value: int_lit.value,})),
+        ast::Expression::IntegerLiteral(int_lit) => Some(Object::Integer(object::Integer {value: int_lit.value,})),
         ast::Expression::Boolean(boolean) => Some(if boolean.value {TRUE.clone()} else {FALSE.clone()}),
         ast::Expression::Prefix(prefix_expr) => {
             let right = eval(ast::Node::Expression(*prefix_expr.right)).unwrap();
@@ -52,7 +79,7 @@ fn eval_expression(expression: ast::Expression) -> Option<object::Object> {
     }
 }
 
-fn eval_if_expression(if_expr: ast::IfExpression) -> Option<object::Object> {
+fn eval_if_expression(if_expr: ast::IfExpression) -> Option<Object> {
     let condition = eval(ast::Node::Expression(*if_expr.condition))?;
 
     if is_truthy(condition) {
@@ -64,15 +91,15 @@ fn eval_if_expression(if_expr: ast::IfExpression) -> Option<object::Object> {
     }
 }
 
-fn is_truthy(c: object::Object) -> bool {
+fn is_truthy(c: Object) -> bool {
     match c {
-        object::Object::Boolean(b) => b.value,
-        object::Object::Null(_) => false,
+        Object::Boolean(b) => b.value,
+        Object::Null(_) => false,
         _ => true, // Any other type is considered truthy
     }
 }
 
-fn eval_prefix_expression(operator: String, right: object::Object) -> Option<object::Object> {
+fn eval_prefix_expression(operator: String, right: Object) -> Option<Object> {
     match operator.as_str() {
         token::BANG => eval_bang_operator_expression(right),
         token::MINUS => eval_minus_prefix_operator_expression(right),
@@ -81,22 +108,22 @@ fn eval_prefix_expression(operator: String, right: object::Object) -> Option<obj
 }
 
 #[rustfmt::skip]
-fn eval_infix_expression(operator: String, left: object::Object, right: object::Object ) -> Option<object::Object> {
+fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Option<Object> {
     match (left, right) {
         //
         // Check if both left and right are Integer objects and handle arithmetic operations
         //
-        (object::Object::Integer(left_int), object::Object::Integer(right_int)) => {
+        (Object::Integer(left_int), Object::Integer(right_int)) => {
             eval_integer_infix_expression(operator, left_int, right_int)
         }
 
         //
         // Check if both left and right are Boolean objects and handle equality and inequality
         //
-        (object::Object::Boolean(left_bool), object::Object::Boolean(right_bool)) => {
+        (Object::Boolean(left_bool), Object::Boolean(right_bool)) => {
             match operator.as_str() {
-                token::EQ => Some(object::Object::Boolean(object::Boolean { value: left_bool.value == right_bool.value })),
-                token::NOT_EQ => Some(object::Object::Boolean(object::Boolean { value: left_bool.value != right_bool.value })),
+                token::EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value == right_bool.value })),
+                token::NOT_EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value != right_bool.value })),
                 _ => Some(NULL.clone()),
             }
         }
@@ -105,58 +132,58 @@ fn eval_infix_expression(operator: String, left: object::Object, right: object::
 }
 
 #[rustfmt::skip]
-fn eval_integer_infix_expression(operator: String, left: object::Integer, right: object::Integer) -> Option<object::Object> {
+fn eval_integer_infix_expression(operator: String, left: object::Integer, right: object::Integer) -> Option<Object> {
     let left_int: i64 = left.value;
     let right_int: i64 = right.value;
     match operator.as_str() {
-        token::PLUS => Some(object::Object::Integer(object::Integer{value: left_int + right_int})),
-        token::MINUS => Some(object::Object::Integer(object::Integer{value: left_int - right_int})),
-        token::ASTERISK => Some(object::Object::Integer(object::Integer{value: left_int * right_int})),
-        token::SLASH => Some(object::Object::Integer(object::Integer{value: left_int / right_int})),
+        token::PLUS => Some(Object::Integer(object::Integer{value: left_int + right_int})),
+        token::MINUS => Some(Object::Integer(object::Integer{value: left_int - right_int})),
+        token::ASTERISK => Some(Object::Integer(object::Integer{value: left_int * right_int})),
+        token::SLASH => Some(Object::Integer(object::Integer{value: left_int / right_int})),
 
-        token::LT => Some(object::Object::Boolean(object::Boolean{value: left_int < right_int})),
-        token::GT => Some(object::Object::Boolean(object::Boolean{value: left_int > right_int})),
-        token::EQ => Some(object::Object::Boolean(object::Boolean{value: left_int == right_int})),
-        token::NOT_EQ => Some(object::Object::Boolean(object::Boolean{value: left_int != right_int})),
+        token::LT => Some(Object::Boolean(object::Boolean{value: left_int < right_int})),
+        token::GT => Some(Object::Boolean(object::Boolean{value: left_int > right_int})),
+        token::EQ => Some(Object::Boolean(object::Boolean{value: left_int == right_int})),
+        token::NOT_EQ => Some(Object::Boolean(object::Boolean{value: left_int != right_int})),
         _=>  Some(NULL.clone())
     }
 }
 
 #[rustfmt::skip]
-fn eval_bang_operator_expression(right: object::Object) -> Option<object::Object> {
+fn eval_bang_operator_expression(right: Object) -> Option<Object> {
     match right {
-        object::Object::Boolean(b) => Some(if b.value { FALSE.clone() } else { TRUE.clone() }),
-        object::Object::Integer(i) => Some(if i.value == 0 { TRUE.clone() } else { FALSE.clone() }),
-        object::Object::Null(_) => Some(TRUE.clone()),
+        Object::Boolean(b) => Some(if b.value { FALSE.clone() } else { TRUE.clone() }),
+        Object::Integer(i) => Some(if i.value == 0 { TRUE.clone() } else { FALSE.clone() }),
+        //Object::Null(_) => Some(TRUE.clone()),
+        _ => Some(TRUE.clone()),
     }
 }
 
-fn eval_minus_prefix_operator_expression(right: object::Object) -> Option<object::Object> {
+fn eval_minus_prefix_operator_expression(right: Object) -> Option<Object> {
     match right {
-        object::Object::Integer(i) => {
-            Some(object::Object::Integer(object::Integer { value: -i.value }))
-        }
+        Object::Integer(i) => Some(Object::Integer(object::Integer { value: -i.value })),
         _ => Some(NULL.clone()),
     }
 }
 #[cfg(test)]
 mod tests {
     use crate::ast_enum::{self as ast, Program};
-    use crate::evaluator_enum::eval;
+    use crate::evaluator_enum::{eval, tests};
     use crate::lexer;
-    use crate::object_enum as object;
+    use crate::object_enum::{self as object, Object};
+
     use crate::parser;
 
-    fn test_eval(input: &str) -> Option<object::Object> {
+    fn test_eval(input: &str) -> Option<Object> {
         let l: lexer::Lexer<'_> = lexer::Lexer::new(input);
         let mut p: parser::Parser<'_> = parser::Parser::new(l);
         let program: Program = p.parse_program().unwrap();
         eval(ast::Node::Program(program))
     }
 
-    fn test_integer_object(obj: object::Object, expected: i64) {
+    fn test_integer_object(obj: Object, expected: i64) {
         match obj {
-            object::Object::Integer(int_obj) => {
+            Object::Integer(int_obj) => {
                 assert_eq!(
                     int_obj.value, expected,
                     "object has wrong value, expected {}, got {}",
@@ -167,9 +194,9 @@ mod tests {
         }
     }
 
-    fn test_boolean_object(obj: object::Object, expected: bool) {
+    fn test_boolean_object(obj: Object, expected: bool) {
         match obj {
-            object::Object::Boolean(bool_obj) => {
+            Object::Boolean(bool_obj) => {
                 assert_eq!(
                     bool_obj.value, expected,
                     "object has wrong value, expected {}, got {}",
@@ -180,9 +207,9 @@ mod tests {
         }
     }
 
-    fn test_null_object(obj: object::Object) {
+    fn test_null_object(obj: Object) {
         match obj {
-            object::Object::Null(_) => (),
+            Object::Null(_) => (),
             _ => panic!("object is not NULL"),
         }
     }
@@ -191,7 +218,7 @@ mod tests {
         let tests: [(&'static str, i64); 2] = [("5", 5), ("10", 10)];
 
         for (input, expected) in tests.iter() {
-            let evaluated: object::Object = test_eval(input).unwrap();
+            let evaluated: Object = test_eval(input).unwrap();
             test_integer_object(evaluated, *expected);
         }
     }
@@ -297,7 +324,7 @@ mod tests {
         // Test cases that should return integers
         //
         for (input, expected) in return_int_tests.iter() {
-            let evaluated: object::Object = test_eval(input).unwrap();
+            let evaluated: Object = test_eval(input).unwrap();
             test_integer_object(evaluated, *expected);
         }
 
@@ -305,8 +332,24 @@ mod tests {
         // Test cases that should return null
         //
         for input in return_null_tests.iter() {
-            let evaluated: object::Object = test_eval(input).unwrap();
+            let evaluated: Object = test_eval(input).unwrap();
             test_null_object(evaluated);
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests: [(&'static str, i64); 5] = [
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("9; return 2 * 5; 9;", 10),
+            ("if (10 > 1) { if (10 > 1) { return 10; } return 1; }", 10),
+        ];
+
+        for (input, expected) in tests.iter() {
+            let evaluated: Object = test_eval(input).unwrap();
+            test_integer_object(evaluated, *expected);
         }
     }
 }
