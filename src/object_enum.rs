@@ -58,3 +58,40 @@ pub struct Return {
 pub struct Error {
     pub message: String,
 }
+
+// define error types
+impl Error {
+    pub fn type_mismatch(type_a: &str, type_b: &str) -> Self {
+        Self {
+            message: format!("Type mismatch: expected {}, got {}", type_a, type_b),
+        }
+    }
+
+    pub fn bad_operator(operator: &str, type_a: &str, type_b: Option<&str>) -> Self {
+        Self {
+            message: match type_b {
+                Some(type_b) => format!(
+                    "Bad operator: {} between {} and {}",
+                    operator, type_a, type_b
+                ),
+                None => format!("Bad operator: {} for {}", operator, type_a),
+            },
+        }
+    }
+
+    pub fn unknown_operator(operator: &str, type_a: &str, type_b: Option<&str>) -> Self {
+        Self {
+            message: match type_b {
+                Some(type_b) => format!(
+                    "Unknown operator: {} for {} and {}",
+                    operator, type_a, type_b
+                ),
+                None => format!("Unknown operator: {} for {}", operator, type_a),
+            },
+        }
+    }
+
+    pub fn custom(message: String) -> Self {
+        Self { message }
+    }
+}
