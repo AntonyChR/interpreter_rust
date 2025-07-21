@@ -188,7 +188,6 @@ fn eval_bang_operator_expression(right: Object) -> Option<Object> {
     match right {
         Object::Boolean(b) => Some(if b.value { FALSE.clone() } else { TRUE.clone() }),
         Object::Integer(i) => Some(if i.value == 0 { TRUE.clone() } else { FALSE.clone() }),
-        //Object::Null(_) => Some(TRUE.clone()),
         _ => Some(TRUE.clone()),
     }
 }
@@ -451,7 +450,7 @@ mod tests {
                     assert_eq!(err.message, expected_error.message);
                 }
                 _ => panic!(
-                    "Expected an error object, but got {:?}, for input {}",
+                    "Expected an error object, but got {:?}, for input: {}",
                     object_type, input
                 ),
             }

@@ -1,4 +1,3 @@
-mod ast;
 mod ast_enum;
 mod lexer;
 mod object;
@@ -7,7 +6,6 @@ mod repl;
 mod token;
 mod utils;
 
-mod evaluator;
 mod evaluator_enum;
 mod object_enum;
 
