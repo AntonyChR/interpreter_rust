@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::ast_enum as ast;
-use crate::object_enum::{self as object, Object};
+use crate::object_enum::{self as object, Error, Object};
 use crate::token;
 
 const TRUE: Object = Object::Boolean(object::Boolean { value: true });
@@ -37,10 +37,11 @@ fn eval_program(statements: Vec<ast::Statement>) -> Option<Object> {
         result = eval(ast::Node::Statement(statement));
 
         if result.is_some() {
-            let result_obj = result.clone().unwrap();
-            if let Object::Return(return_obj) = result_obj {
-                // Desempaquetar el valor interno del Return
+            let result_clone: Object = result.clone().unwrap();
+            if let Object::Return(return_obj) = result_clone {
                 return Some(*return_obj.value);
+            } else if let Object::Error(_) = result_clone {
+                return result;
             }
         }
     }
@@ -53,7 +54,11 @@ fn eval_block_statement(statements: Vec<ast::Statement>) -> Option<Object> {
         result = eval(ast::Node::Statement(statement));
 
         if let Some(Object::Return(_)) = result {
-            return result;
+            let result_clone: Object = result.clone().unwrap();
+            let result_type = result_clone.object_type();
+            if result_type == object::RETURN_OBJ || result_type == object::ERROR_OBJ {
+                return result;
+            }
         }
     }
     result
@@ -103,12 +108,29 @@ fn eval_prefix_expression(operator: String, right: Object) -> Option<Object> {
     match operator.as_str() {
         token::BANG => eval_bang_operator_expression(right),
         token::MINUS => eval_minus_prefix_operator_expression(right),
-        _ => return Some(NULL.clone()),
+        _ => {
+            return Some(Object::Error(Error::unknown_operator(
+                operator.as_str(),
+                right.object_type(),
+                None,
+            )))
+        }
     }
 }
 
 #[rustfmt::skip]
 fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Option<Object> {
+    if left.object_type() == right.object_type() {
+        Some(Object::Error(Error::type_mismatch(
+            left.object_type(),
+            right.object_type(),
+        )));
+    }
+    let left_clone: Object = left.clone();
+    let right_clone: Object = right.clone();
+    let left_type: &str = left_clone.object_type();
+    let right_type: &str = right_clone.object_type();
+    
     match (left, right) {
         //
         // Check if both left and right are Integer objects and handle arithmetic operations
@@ -124,10 +146,18 @@ fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Opti
             match operator.as_str() {
                 token::EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value == right_bool.value })),
                 token::NOT_EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value != right_bool.value })),
-                _ => Some(NULL.clone()),
+                _ => Some(Object::Error(Error::bad_operator(
+                    operator.as_str(),
+                    left_type,
+                    Some(right_type),
+                ))),
             }
         }
-        _ => Some(NULL.clone()),
+        _ => Some(Object::Error(Error::bad_operator(
+            operator.as_str(),
+            left_type,
+            Some(right_type),
+        ))),
     }
 }
 
@@ -145,7 +175,11 @@ fn eval_integer_infix_expression(operator: String, left: object::Integer, right:
         token::GT => Some(Object::Boolean(object::Boolean{value: left_int > right_int})),
         token::EQ => Some(Object::Boolean(object::Boolean{value: left_int == right_int})),
         token::NOT_EQ => Some(Object::Boolean(object::Boolean{value: left_int != right_int})),
-        _=>  Some(NULL.clone())
+        _=>  Some(Object::Error(Error::unknown_operator(
+            operator.as_str(),
+            object::INTEGER_OBJ,
+            Some(object::INTEGER_OBJ),
+        ))),
     }
 }
 
@@ -160,17 +194,28 @@ fn eval_bang_operator_expression(right: Object) -> Option<Object> {
 }
 
 fn eval_minus_prefix_operator_expression(right: Object) -> Option<Object> {
+    if right.object_type() != object::INTEGER_OBJ {
+        return Some(Object::Error(Error::bad_operator(
+            token::MINUS,
+            right.object_type(),
+            None,
+        )));
+    }
     match right {
         Object::Integer(i) => Some(Object::Integer(object::Integer { value: -i.value })),
         _ => Some(NULL.clone()),
     }
 }
+
+fn new_error(message: String) -> object::Error {
+    object::Error { message }
+}
 #[cfg(test)]
 mod tests {
     use crate::ast_enum::{self as ast, Program};
     use crate::evaluator_enum::eval;
-    use crate::lexer;
-    use crate::object_enum::Object;
+    use crate::object_enum::{self as object, Error, Object};
+    use crate::{lexer, token};
 
     use crate::parser;
 
@@ -350,6 +395,66 @@ mod tests {
         for (input, expected) in tests.iter() {
             let evaluated: Object = test_eval(input).unwrap();
             test_integer_object(evaluated, *expected);
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests: [(&'static str, Error); 7] = [
+            (
+                "5 + true;",
+                Error::bad_operator(token::PLUS, object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "5 + true; 5;",
+                Error::bad_operator(token::PLUS, object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "-true",
+                Error::bad_operator(token::MINUS, object::BOOLEAN_OBJ, None),
+            ),
+            (
+                " true + false;",
+                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "5; true + false; 5",
+                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "
+                if (10 > 1) {
+                    if (10 > 1) {
+                        return true + false;
+                    }
+                    return 1;
+                }
+                ",
+                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+        ];
+
+        for (input, expected_error) in tests.iter() {
+            let evaluated: Option<Object> = test_eval(input);
+            assert!(
+                evaluated.is_some(),
+                "Expected an error, but got None, for input: {}",
+                input
+            );
+            let object_type: String = String::from(evaluated.clone().unwrap().object_type());
+            match evaluated.unwrap() {
+                Object::Error(err) => {
+                    assert_eq!(err.message, expected_error.message);
+                }
+                _ => panic!(
+                    "Expected an error object, but got {:?}, for input {}",
+                    object_type, input
+                ),
+            }
         }
     }
 }
