@@ -1,4 +1,5 @@
 mod ast_enum;
+mod environment;
 mod lexer;
 mod object;
 mod parser;
