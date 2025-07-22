@@ -91,6 +91,12 @@ impl Error {
         }
     }
 
+    pub fn undefined_variable(name: &str) -> Self {
+        Self {
+            message: format!("Undefined variable: {}", name),
+        }
+    }
+
     pub fn custom(message: String) -> Self {
         Self { message }
     }
