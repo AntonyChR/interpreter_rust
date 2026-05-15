@@ -1,83 +1,103 @@
-#![allow(dead_code)]
-
-use std::any::Any;
-
 pub const INTEGER_OBJ: &str = "INTEGER";
 pub const BOOLEAN_OBJ: &str = "BOOLEAN";
+pub const RETURN_OBJ: &str = "RETURN";
 pub const NULL_OBJ: &str = "NULL";
-pub const RETURN_VALUE_OBJ: &str = "RETURN_VALUE";
+pub const ERROR_OBJ: &str = "ERROR";
 
-type ObjectType = String;
-
-pub type BoxedObject = Box<dyn Object>;
-
-pub trait Object: Any {
-    fn object_type(&self) -> ObjectType;
-    fn inspect(&self) -> String;
-    fn as_any(&self) -> &dyn Any;
+#[derive(Debug, Clone, PartialEq)]
+pub enum Object {
+    Integer(Integer),
+    Boolean(Boolean),
+    Return(Return),
+    Null(Null),
+    Error(Error),
 }
 
+#[allow(dead_code)]
+impl Object {
+    pub fn object_type(&self) -> &str {
+        match self {
+            Object::Integer(_) => INTEGER_OBJ,
+            Object::Boolean(_) => BOOLEAN_OBJ,
+            Object::Return(_) => RETURN_OBJ,
+            Object::Null(_) => NULL_OBJ,
+            Object::Error(_) => ERROR_OBJ,
+        }
+    }
+
+    pub fn inspect(&self) -> String {
+        match self {
+            Object::Integer(i) => i.value.to_string(),
+            Object::Boolean(b) => b.value.to_string(),
+            Object::Return(r) => format!("return {}", r.value.inspect()),
+            Object::Null(_) => "null".to_string(),
+            Object::Error(e) => format!("Error: {}", e.message),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Integer {
     pub value: i64,
 }
 
-impl Object for Integer {
-    fn object_type(&self) -> ObjectType {
-        String::from(INTEGER_OBJ)
-    }
-    fn inspect(&self) -> String {
-        format!("{}", self.value)
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
-}
-
+#[derive(Debug, Clone, PartialEq)]
 pub struct Boolean {
     pub value: bool,
 }
 
-impl Object for Boolean {
-    fn object_type(&self) -> ObjectType {
-        String::from(BOOLEAN_OBJ)
-    }
-    fn inspect(&self) -> String {
-        format!("{}", self.value)
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub struct Null {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Return {
+    pub value: Box<Object>,
 }
 
-pub struct NULL {}
-
-impl Object for NULL {
-    fn object_type(&self) -> ObjectType {
-        String::from("null")
-    }
-    fn inspect(&self) -> String {
-        String::from(NULL_OBJ)
-    }
-    fn as_any(&self) -> &dyn Any {
-        self
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub struct Error {
+    pub message: String,
 }
 
-pub struct ReturnValue {
-    pub value: Box<dyn Object>,
-}
-
-impl Object for ReturnValue {
-    fn object_type(&self) -> ObjectType {
-        String::from(RETURN_VALUE_OBJ)
+// define error types
+impl Error {
+    pub fn type_mismatch(type_a: &str, type_b: &str) -> Self {
+        Self {
+            message: format!("Type mismatch: expected {}, got {}", type_a, type_b),
+        }
     }
 
-    fn inspect(&self) -> String {
-        self.value.inspect()
+    pub fn bad_operator(operator: &str, type_a: &str, type_b: Option<&str>) -> Self {
+        Self {
+            message: match type_b {
+                Some(type_b) => format!(
+                    "Bad operator: {} between {} and {}",
+                    operator, type_a, type_b
+                ),
+                None => format!("Bad operator: {} for {}", operator, type_a),
+            },
+        }
     }
 
-    fn as_any(&self) -> &dyn Any {
-        self
+    pub fn unknown_operator(operator: &str, type_a: &str, type_b: Option<&str>) -> Self {
+        Self {
+            message: match type_b {
+                Some(type_b) => format!(
+                    "Unknown operator: {} for {} and {}",
+                    operator, type_a, type_b
+                ),
+                None => format!("Unknown operator: {} for {}", operator, type_a),
+            },
+        }
     }
 
+    pub fn undefined_variable(name: &str) -> Self {
+        Self {
+            message: format!("Undefined variable: {}", name),
+        }
+    }
+
+    pub fn custom(message: String) -> Self {
+        Self { message }
+    }
 }

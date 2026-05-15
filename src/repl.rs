@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 use std::io::{stdin, stdout, Write};
 
-use crate::ast_enum as ast;
+use crate::ast;
 use crate::environment::Environment;
-use crate::evaluator_enum as evaluator;
+use crate::evaluator;
 use crate::lexer::Lexer;
-use crate::object_enum::Object;
+use crate::object::Object;
 use crate::parser::Parser;
 
 const PROMPT: &str = ">> ";

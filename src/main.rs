@@ -1,14 +1,13 @@
-mod ast_enum;
+mod ast;
 mod environment;
 mod lexer;
-mod object;
 mod parser;
 mod repl;
 mod token;
 mod utils;
 
-mod evaluator_enum;
-mod object_enum;
+mod evaluator;
+mod object;
 
 const BANNER: &str = r"
   ______                           

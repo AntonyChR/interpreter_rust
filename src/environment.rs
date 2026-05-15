@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::object_enum::Object;
+use crate::object::Object;
 pub struct Environment {
     store: HashMap<String, Object>,
     //outer: Option<Box<Environment>>,

@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use crate::ast_enum as ast;
+use crate::ast;
 use crate::lexer;
 use crate::token;
 
@@ -471,7 +471,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast_enum as ast;
+    use crate::ast;
     use crate::lexer;
     use crate::parser::Parser;
 
