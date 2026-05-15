@@ -2,10 +2,11 @@
 use std::io::{stdin, stdout, Write};
 
 use crate::ast_enum as ast;
+use crate::environment::Environment;
 use crate::evaluator_enum as evaluator;
-use crate::lexer;
+use crate::lexer::Lexer;
 use crate::object_enum::Object;
-use crate::parser;
+use crate::parser::Parser;
 
 const PROMPT: &str = ">> ";
 
@@ -17,8 +18,10 @@ pub fn start() {
         stdin()
             .read_line(&mut input)
             .expect("can not read user input");
-        let lexer: lexer::Lexer = lexer::Lexer::new(&input);
-        let mut parser: parser::Parser = parser::Parser::new(lexer);
+
+        let mut env: Environment = Environment::new();
+        let lexer: Lexer = Lexer::new(&input);
+        let mut parser: Parser = Parser::new(lexer);
         let program: ast::Program = parser.parse_program().expect("error parsing program");
         if parser.get_errors().len() != 0 {
             print_parser_errors(parser.get_errors());

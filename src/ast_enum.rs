@@ -94,7 +94,7 @@ impl Program {
 pub struct LetStatement {
     pub token: Token, // the 'let' token
     pub name: Identifier,
-    pub value: Box<Expression>,
+    pub value: Expression,
 }
 
 impl fmt::Display for LetStatement {
@@ -283,13 +283,13 @@ mod tests {
                     },
                     value: "myVar".to_string(),
                 },
-                value: Box::new(Expression::Identifier(Identifier {
+                value: Expression::Identifier(Identifier {
                     token: Token {
                         toke_type: IDENT.to_string(),
                         literal: "anotherVar".to_string(),
                     },
                     value: "anotherVar".to_string(),
-                })),
+                }),
             })],
         };
 

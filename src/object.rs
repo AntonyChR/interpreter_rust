@@ -5,6 +5,7 @@ use std::any::Any;
 pub const INTEGER_OBJ: &str = "INTEGER";
 pub const BOOLEAN_OBJ: &str = "BOOLEAN";
 pub const NULL_OBJ: &str = "NULL";
+pub const RETURN_VALUE_OBJ: &str = "RETURN_VALUE";
 
 type ObjectType = String;
 
@@ -60,4 +61,23 @@ impl Object for NULL {
     fn as_any(&self) -> &dyn Any {
         self
     }
+}
+
+pub struct ReturnValue {
+    pub value: Box<dyn Object>,
+}
+
+impl Object for ReturnValue {
+    fn object_type(&self) -> ObjectType {
+        String::from(RETURN_VALUE_OBJ)
+    }
+
+    fn inspect(&self) -> String {
+        self.value.inspect()
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
 }

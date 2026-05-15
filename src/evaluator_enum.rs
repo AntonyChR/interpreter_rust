@@ -21,12 +21,28 @@ fn eval_statement(statement: ast::Statement) -> Option<Object> {
         ast::Statement::Expression(expr_stmt) => eval_expression(*expr_stmt.expression),
         ast::Statement::Block(block_stmt) => eval_block_statement(block_stmt.statements),
         ast::Statement::Return(return_stmt) => {
-            let res: Object = eval_expression(*return_stmt.return_value.unwrap()).unwrap();
-            Some(Object::Return(object::Return {
-                value: Box::new(res),
-            }))
-        }
+            // let res: Object = eval_expression(*return_stmt.return_value.unwrap()).unwrap();
+            // Some(Object::Return(object::Return {
+            //     value: Box::new(res),
+            // }))
+            if let Some(return_value) = return_stmt.return_value {
+                if let Some(res) = eval_expression(*return_value) {
 
+                    if res.object_type() == object::ERROR_OBJ{
+                         return Some(res)
+                    }
+
+                    Some(Object::Return(object::Return {
+                        value: Box::new(res),
+                    }))
+
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
         _ => None,
     }
 }
@@ -65,18 +81,34 @@ fn eval_block_statement(statements: Vec<ast::Statement>) -> Option<Object> {
 }
 
 #[rustfmt::skip]
-fn eval_expression(expression: ast::Expression) -> Option<Object> {
+fn  eval_expression(expression: ast::Expression) -> Option<Object> {
     match expression {
         ast::Expression::IntegerLiteral(int_lit) => Some(Object::Integer(object::Integer {value: int_lit.value,})),
-        ast::Expression::Boolean(boolean) => Some(if boolean.value {TRUE.clone()} else {FALSE.clone()}),
+        //ast::Expression::Boolean(boolean) => Some(if boolean.value {TRUE.clone()} else {FALSE.clone()}),
+        ast::Expression::Boolean(boolean) => Some(Object::Boolean(object::Boolean { value: boolean.value })),
         ast::Expression::Prefix(prefix_expr) => {
-            let right = eval(ast::Node::Expression(*prefix_expr.right)).unwrap();
-            eval_prefix_expression(prefix_expr.operator, right)
+            if let Some(right) = eval(ast::Node::Expression(*prefix_expr.right)){
+                if right.object_type() == object::ERROR_OBJ {
+                    return Some(right)
+                }
+                return eval_prefix_expression(prefix_expr.operator, right)
+            }
+            None
         },
         ast::Expression::Infix(infix_expr) =>{
-            let left = eval(ast::Node::Expression(*infix_expr.left)).unwrap();
-            let right = eval(ast::Node::Expression(*infix_expr.right)).unwrap();
-            return eval_infix_expression(infix_expr.operator, left, right);
+            let left: Option<Object> = eval(ast::Node::Expression(*infix_expr.left));
+
+            let right: Option<Object> = eval(ast::Node::Expression(*infix_expr.right));
+            if left.is_none() || right.is_none() {
+                return None;
+            }
+            if left.clone().unwrap().object_type() == object::ERROR_OBJ{
+                return left;
+             }
+            if right.clone().unwrap().object_type() == object::ERROR_OBJ{
+                return right;
+             }
+            return eval_infix_expression(infix_expr.operator, left.unwrap(), right.unwrap());
         }
         ast::Expression::If(if_expr) => eval_if_expression(if_expr),
         ast::Expression::Identifier(ident) if ident.value == "null" => Some(NULL.clone()),
@@ -188,7 +220,8 @@ fn eval_bang_operator_expression(right: Object) -> Option<Object> {
     match right {
         Object::Boolean(b) => Some(if b.value { FALSE.clone() } else { TRUE.clone() }),
         Object::Integer(i) => Some(if i.value == 0 { TRUE.clone() } else { FALSE.clone() }),
-        _ => Some(TRUE.clone()),
+        Object::Null(_) =>Some(TRUE.clone()),
+        _ => Some(FALSE.clone()),
     }
 }
 
@@ -257,9 +290,26 @@ mod tests {
             _ => panic!("object is not NULL"),
         }
     }
+    #[rustfmt::skip]
     #[test]
     fn test_eval_integer_expression() {
-        let tests: [(&'static str, i64); 2] = [("5", 5), ("10", 10)];
+        let tests: [(&'static str, i64); 15] = [
+            ("5", 5), 
+            ("10", 10), 
+            ("-5",-5), 
+            ("-10",-10),
+            ("5 + 5 + 5 + 5 - 10", 10),
+            ("2 * 2 * 2 * 2 * 2", 32),
+            ("-50 + 100 + -50", 0),
+            ("5 * 2 + 10", 20),
+            ("5 + 2 * 10", 25),
+            ("20 + 2 * -10", 0),
+            ("50 / 2 * 2 + 10", 60),
+            ("2 * (5 + 10)", 30),
+            ("3 * 3 * 3 + 10", 37),
+            ("3 * (3 * 3) + 10", 37),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
+            ];
 
         for (input, expected) in tests.iter() {
             let evaluated: Object = test_eval(input).unwrap();
@@ -444,14 +494,17 @@ mod tests {
                 "Expected an error, but got None, for input: {}",
                 input
             );
-            let object_type: String = String::from(evaluated.clone().unwrap().object_type());
+            let evaluated_clone = evaluated.clone().unwrap();
+            let object_type: String = String::from(evaluated_clone.object_type());
+            let value: String = String::from(evaluated_clone.inspect());
+            
             match evaluated.unwrap() {
                 Object::Error(err) => {
                     assert_eq!(err.message, expected_error.message);
                 }
                 _ => panic!(
-                    "Expected an error object, but got {:?}, for input: {}",
-                    object_type, input
+                    "Expected an error object, but got {:?}, for input: {}\n value: {}",
+                    object_type, input, value
                 ),
             }
         }

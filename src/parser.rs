@@ -176,7 +176,7 @@ impl<'a> Parser<'a> {
         Some(ast::Statement::Let(ast::LetStatement {
             token: let_token,
             name,
-            value: Box::new(value),
+            value: value,
         }))
     }
 
