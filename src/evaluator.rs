@@ -69,9 +69,8 @@ fn eval_block_statement(statements: Vec<ast::Statement>) -> Option<Object> {
     for statement in statements {
         result = eval(ast::Node::Statement(statement));
 
-        if let Some(Object::Return(_)) = result {
-            let result_clone: Object = result.clone().unwrap();
-            let result_type = result_clone.object_type();
+        if let Some(res) = &result {
+            let result_type = res.object_type();
             if result_type == object::RETURN_OBJ || result_type == object::ERROR_OBJ {
                 return result;
             }
@@ -119,6 +118,10 @@ fn  eval_expression(expression: ast::Expression) -> Option<Object> {
 fn eval_if_expression(if_expr: ast::IfExpression) -> Option<Object> {
     let condition = eval(ast::Node::Expression(*if_expr.condition))?;
 
+    if condition.object_type() == object::ERROR_OBJ {
+        return Some(condition);
+    }
+
     if is_truthy(condition) {
         return eval_statement(ast::Statement::Block(if_expr.consequence));
     } else if if_expr.alternative.is_some() {
@@ -152,12 +155,6 @@ fn eval_prefix_expression(operator: String, right: Object) -> Option<Object> {
 
 #[rustfmt::skip]
 fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Option<Object> {
-    if left.object_type() == right.object_type() {
-        Some(Object::Error(Error::type_mismatch(
-            left.object_type(),
-            right.object_type(),
-        )));
-    }
     let left_clone: Object = left.clone();
     let right_clone: Object = right.clone();
     let left_type: &str = left_clone.object_type();
@@ -449,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_error_handling() {
-        let tests: [(&'static str, Error); 7] = [
+        let tests: [(&'static str, Error); 8] = [
             (
                 "5 + true;",
                 Error::bad_operator(token::PLUS, object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
@@ -475,14 +472,17 @@ mod tests {
                 Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
             ),
             (
-                "
-                if (10 > 1) {
+                "if (10 > 1) {
                     if (10 > 1) {
                         return true + false;
                     }
                     return 1;
                 }
                 ",
+                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "if (true + false) { 10 }",
                 Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
             ),
         ];
