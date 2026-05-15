@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 pub const INTEGER_OBJ: &str = "INTEGER";
 pub const BOOLEAN_OBJ: &str = "BOOLEAN";
 pub const RETURN_OBJ: &str = "RETURN";

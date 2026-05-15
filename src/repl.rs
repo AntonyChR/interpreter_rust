@@ -1,8 +1,7 @@
-#![allow(dead_code)]
 use std::io::{stdin, stdout, Write};
 
 use crate::ast;
-use crate::environment::Environment;
+//use crate::environment::Environment;
 use crate::evaluator;
 use crate::lexer::Lexer;
 use crate::object::Object;
@@ -19,7 +18,7 @@ pub fn start() {
             .read_line(&mut input)
             .expect("can not read user input");
 
-        let mut env: Environment = Environment::new();
+        //let mut env: Environment = Environment::new();
         let lexer: Lexer = Lexer::new(&input);
         let mut parser: Parser = Parser::new(lexer);
         let program: ast::Program = parser.parse_program().expect("error parsing program");
