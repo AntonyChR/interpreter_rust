@@ -102,7 +102,7 @@ impl<'a> Lexer<'a> {
             "" => token = Token::new(EOF, ""),
             _ => {
                 if is_letter(self.ch) {
-                    let literal = self.read_identifier();
+                    let literal: String = self.read_identifier();
                     token = Token::new(lookup_identifier(&literal), &literal);
                     return token;
                 } else if is_digit(self.ch) {

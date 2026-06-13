@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 
+use crate::{ast, environment::Env};
+
 pub const INTEGER_OBJ: &str = "INTEGER";
 pub const BOOLEAN_OBJ: &str = "BOOLEAN";
 pub const RETURN_OBJ: &str = "RETURN";
 pub const NULL_OBJ: &str = "NULL";
 pub const ERROR_OBJ: &str = "ERROR";
+pub const FUNCTION_OBJ: &str = "FUNCTION";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object {
@@ -13,10 +16,11 @@ pub enum Object {
     Return(Return),
     Null(Null),
     Error(Error),
+    Function(Function),
 }
 
 #[allow(dead_code)]
-impl Object {
+impl Object{
     pub fn object_type(&self) -> &str {
         match self {
             Object::Integer(_) => INTEGER_OBJ,
@@ -24,6 +28,7 @@ impl Object {
             Object::Return(_) => RETURN_OBJ,
             Object::Null(_) => NULL_OBJ,
             Object::Error(_) => ERROR_OBJ,
+            Object::Function(_) => FUNCTION_OBJ,
         }
     }
 
@@ -34,6 +39,13 @@ impl Object {
             Object::Return(r) => format!("return {}", r.value.inspect()),
             Object::Null(_) => "null".to_string(),
             Object::Error(e) => format!("Error: {}", e.message),
+            Object::Function(f) => {
+                let params:String = f.parameters.iter()
+                    .map(|v| v.to_string())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("fn({}) {{\n{}\n}}",params,f.body.to_string())
+            },
         }
     }
 }
@@ -52,13 +64,36 @@ pub struct Boolean {
 pub struct Null {}
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Return {
+pub struct Return{
     pub value: Box<Object>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Error {
     pub message: String,
+}
+
+#[derive(Debug)]
+pub struct Function{
+    pub parameters: Vec<ast::Identifier>,
+    pub body: ast::BlockStatement,
+    pub env: Env,
+}
+
+impl Clone for Function {
+    fn clone(&self) -> Self {
+        Self {
+            parameters: self.parameters.clone(),
+            body: self.body.clone(),
+            env: self.env.clone(),
+        }
+    }    
+}
+
+impl PartialEq for Function{
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
 }
 
 // define error types

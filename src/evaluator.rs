@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use crate::{ast, environment};
+use crate::ast;
+use crate::environment::{Env, Environment};
 use crate::object::{self as object, Error, Object};
 use crate::token;
 
@@ -8,7 +9,7 @@ const TRUE: Object = Object::Boolean(object::Boolean { value: true });
 const FALSE: Object = Object::Boolean(object::Boolean { value: false });
 const NULL: Object = Object::Null(object::Null {});
 
-pub fn eval(node: ast::Node, env: &mut environment::Environment) -> Option<Object> {
+pub fn eval(node: ast::Node, env: Env) -> Option<Object> {
     match node {
         ast::Node::Program(program) => eval_program(program.statements, env),
         ast::Node::Statement(statement) => eval_statement(statement, env),
@@ -16,7 +17,7 @@ pub fn eval(node: ast::Node, env: &mut environment::Environment) -> Option<Objec
     }
 }
 
-fn eval_statement(statement: ast::Statement, env: &mut environment::Environment) -> Option<Object> {
+fn eval_statement(statement: ast::Statement, env: Env) -> Option<Object> {
     match statement {
         ast::Statement::Expression(expr_stmt) => eval_expression(*expr_stmt.expression, env),
         ast::Statement::Block(block_stmt) => eval_block_statement(block_stmt.statements, env),
@@ -25,21 +26,21 @@ fn eval_statement(statement: ast::Statement, env: &mut environment::Environment)
     }
 }
 
-fn eval_let_statement(stmt: ast::LetStatement, env: &mut environment::Environment) -> Option<Object> {
-    let evaluated = eval(ast::Node::Expression(stmt.value), env);
+fn eval_let_statement(stmt: ast::LetStatement, env: Env) -> Option<Object> {
+    let evaluated: Option<Object> = eval(ast::Node::Expression(stmt.value), env.clone());
     if let Some(result) = evaluated {
         if result.object_type() == object::ERROR_OBJ {
             return Some(result)
         }
-        env.set(stmt.name.value, result);
+        env.borrow_mut().define(stmt.name.value, result);
     }
     None
 }
 
-fn eval_program(statements: Vec<ast::Statement>, env: &mut environment::Environment) -> Option<Object> {
+fn eval_program(statements: Vec<ast::Statement>, env: Env) -> Option<Object> {
     let mut result: Option<Object> = None;
     for statement in statements {
-        result = eval(ast::Node::Statement(statement), env);
+        result = eval(ast::Node::Statement(statement), env.clone());
 
         if result.is_some() {
             let result_clone: Object = result.clone().unwrap();
@@ -53,30 +54,25 @@ fn eval_program(statements: Vec<ast::Statement>, env: &mut environment::Environm
     result
 }
 
-fn eval_return_stmt(stmt: ast::ReturnStatement, env: &mut environment::Environment) -> Option<Object> {
+fn eval_return_stmt(stmt: ast::ReturnStatement, env: Env) -> Option<Object> {
     if let Some(return_value) = stmt.return_value {
         if let Some(res) = eval_expression(*return_value,env) {
-
             if res.object_type() == object::ERROR_OBJ{
                 return Some(res)
             }
-
-            Some(Object::Return(object::Return {
+            return Some(Object::Return(object::Return {
                 value: Box::new(res),
             }))
-
-        } else {
-            None
         }
-    } else {
-        None
-    }
+        return None
+     } 
+    None
 }
 
-fn eval_block_statement(statements: Vec<ast::Statement>, env: &mut environment::Environment) -> Option<Object> {
+fn eval_block_statement(statements: Vec<ast::Statement>, env: Env) -> Option<Object> {
     let mut result: Option<Object> = None;
     for statement in statements {
-        result = eval(ast::Node::Statement(statement), env);
+        result = eval(ast::Node::Statement(statement), env.clone());
 
         if let Some(res) = &result {
             let result_type = res.object_type();
@@ -89,7 +85,7 @@ fn eval_block_statement(statements: Vec<ast::Statement>, env: &mut environment::
 }
 
 #[rustfmt::skip]
-fn  eval_expression(expression: ast::Expression, env: &mut environment::Environment) -> Option<Object> {
+fn  eval_expression(expression: ast::Expression, env: Env) -> Option<Object> {
     match expression {
         ast::Expression::IntegerLiteral(int_lit) => Some(Object::Integer(object::Integer {value: int_lit.value,})),
         ast::Expression::Boolean(boolean) => Some(Object::Boolean(object::Boolean { value: boolean.value })),
@@ -103,35 +99,97 @@ fn  eval_expression(expression: ast::Expression, env: &mut environment::Environm
             None
         },
         ast::Expression::Infix(infix_expr) =>{
-            let left: Option<Object> = eval(ast::Node::Expression(*infix_expr.left), env);
+            let left: Object = match eval(ast::Node::Expression(*infix_expr.left), env.clone()){
+                Some(v) => v,
+                None => return None,
+            };
 
-            let right: Option<Object> = eval(ast::Node::Expression(*infix_expr.right), env);
-            if left.is_none() || right.is_none() {
-                return None;
-            }
-            if left.clone().unwrap().object_type() == object::ERROR_OBJ{
-                return left;
+            let right: Object = match eval(ast::Node::Expression(*infix_expr.right), env){
+                Some(v) => v,
+                None => return None,
+            };
+   
+            if left.object_type() == object::ERROR_OBJ{
+                return Some(left);
              }
-            if right.clone().unwrap().object_type() == object::ERROR_OBJ{
-                return right;
+            if right.object_type() == object::ERROR_OBJ{
+                return Some(right);
              }
-            return eval_infix_expression(infix_expr.operator, left.unwrap(), right.unwrap());
+            eval_infix_expression(infix_expr.operator, left, right)
         }
         ast::Expression::If(if_expr) => eval_if_expression(if_expr, env),
         ast::Expression::Identifier(ident) => eval_identifier(ident, env),
-        _ => None,
+        ast::Expression::FunctionLiteral(func) => {
+            Some(Object::Function(
+                    object::Function { parameters: func.parameters, body: func.body, env: env.clone() }
+            ))
+        },
+        ast::Expression::Call(call_exp) => {
+            if let Some(func) = eval(ast::Node::Expression(*call_exp.function), env.clone()) {
+                if func.object_type() == object::ERROR_OBJ {
+                    return Some(func);
+                }
+                let args: Vec<Object> = eval_expressions(call_exp.arguments, env);
+                if args.len() == 1 && args[0].object_type() == object::ERROR_OBJ {
+                    return Some(args[0].clone());
+                }
+                return Some(apply_function(func, args));
+            }
+            None
+        },
     }
 }
 
-fn eval_identifier(identifier: ast::Identifier, env: &mut environment::Environment) -> Option<Object>{
-    if let Some(value) = env.get(identifier.value.as_str()) {
+fn apply_function(func: Object, args: Vec<Object>) -> Object{
+    match func{
+        Object::Function(f)=> {
+            let new_enclosed_env: Env = Environment::new_enclosed(f.env.clone());
+
+            // define function args as variables in the new closure
+            for (i, param) in f.parameters.iter().enumerate(){
+                new_enclosed_env.borrow_mut().define(param.value.clone(), args[i].clone());
+            }
+
+            let evaluated = eval(
+                ast::Node::Statement(ast::Statement::Block(f.body)), 
+                new_enclosed_env
+            ).expect("expected Object value, got None. Location: \"apply_function\"") ;
+
+            if let Object::Return(r) = evaluated{
+                return *r.value
+            }
+            return evaluated;
+        },
+        _=>{
+            return Object::Error(Error::custom(format!("not a function: {}", func.object_type())));
+        }
+    }
+}
+
+
+fn eval_expressions(exps: Vec<ast::Expression>, env: Env) -> Vec<Object> {
+    let mut evaluated_expressions:Vec<object::Object> = Vec::new();
+    for e in exps.iter() {
+        let evaluated = eval(ast::Node::Expression(e.clone()), env.clone());
+        if let Some(res) = evaluated {
+            if res.object_type() == object::ERROR_OBJ {
+                return vec![res]
+            }
+            evaluated_expressions.push(res);
+        }
+    } 
+    evaluated_expressions
+}
+
+fn eval_identifier(identifier: ast::Identifier, env: Env) -> Option<Object>{
+    if let Some(value) = env.borrow().get(identifier.value.as_str()) {
         return Some(value.clone())
     }
     return Some(Object::Error(Error::undefined_variable(identifier.value.as_str())))
 }
 
-fn eval_if_expression(if_expr: ast::IfExpression, env: &mut environment::Environment) -> Option<Object> {
-    let condition = eval(ast::Node::Expression(*if_expr.condition), env)?;
+fn eval_if_expression(if_expr: ast::IfExpression, env: Env) -> Option<Object> {
+    let condition = eval(ast::Node::Expression(*if_expr.condition), env.clone())?;
 
     if condition.object_type() == object::ERROR_OBJ {
         return Some(condition);
@@ -268,8 +326,8 @@ mod tests {
         let l: lexer::Lexer<'_> = lexer::Lexer::new(input);
         let mut p: parser::Parser<'_> = parser::Parser::new(l);
         let program: Program = p.parse_program().unwrap();
-        let mut env = environment::Environment::new();
-        eval(ast::Node::Program(program), &mut env)
+        let env = environment::Environment::new();
+        eval(ast::Node::Program(program), env)
     }
 
     fn test_integer_object(obj: Object, expected: i64, case: String) {
@@ -538,9 +596,41 @@ mod tests {
         ];
 
         for c in tests.iter(){
-            let res = test_eval(c.0);
-            test_integer_object(res.unwrap(), c.1, String::from(c.0));            
+            let res = test_eval(c.0).expect("error evaluating input");
+            test_integer_object(res, c.1, c.0.to_string());            
         }
 
+    }
+
+    #[test]
+    fn test_function_object(){
+        let input = "fn(x){x + 2;};";
+        let evaluated = test_eval(input).expect("Error evaluating input");
+        match evaluated {
+            Object::Function(func)=>{
+                assert_eq!(1, func.parameters.len(), "functions has wrong parameters. expected {} params, got {}", 1, func.parameters.len());
+                assert_eq!("x", func.parameters[0].to_string(), " parameter is not 'x', got {}", func.parameters[0].to_string());
+                assert_eq!("(x + 2)", func.body.to_string(), "body is not '(x + 2)', got {}", func.body.to_string());
+            },
+            _=> panic!("object is not a Function. got \n{}\nwith type\n{}",evaluated.inspect(), evaluated.object_type())
+        }
+    }
+
+
+    #[test]
+    fn test_function_application(){
+        let test: [(&'static str, i64);6] = [
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }(5)", 5),
+        ];
+
+        for c in test.iter() {
+            let res = test_eval(c.0).expect("error evaluating input");
+            test_integer_object(res, c.1, c.0.to_string());
+        }
     }
 }

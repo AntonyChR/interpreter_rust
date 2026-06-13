@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Write};
 
 use crate::ast;
-use crate::environment::Environment;
+use crate::environment::{Environment, Env};
 use crate::evaluator;
 use crate::lexer::Lexer;
 use crate::object::Object;
@@ -10,11 +10,11 @@ use crate::parser::Parser;
 const PROMPT: &str = ">> ";
 
 pub fn start() {
-    let mut env: Environment = Environment::new();
+    let env:Env  = Environment::new();
+    let mut input: String = String::new();
     loop {
         print!("{}", PROMPT);
         stdout().flush().expect("failed to flush stdout");
-        let mut input: String = String::new();
         stdin()
             .read_line(&mut input)
             .expect("can not read user input");
@@ -26,7 +26,7 @@ pub fn start() {
             print_parser_errors(parser.get_errors());
             continue;
         }
-        let evaluated: Option<Object> = evaluator::eval(ast::Node::Program(program), &mut env);
+        let evaluated: Option<Object> = evaluator::eval(ast::Node::Program(program),  env.clone());
         if let Some(res) = evaluated {
             println!("{}", res.inspect());
         }
