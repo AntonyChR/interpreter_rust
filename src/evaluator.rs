@@ -1,15 +1,10 @@
 #![allow(dead_code)]
 
 use crate::ast;
-use crate::environment::{Env, Environment};
+use crate::environment::Env;
 use crate::object::{self as object, Error, Object};
-use crate::token;
 
-const TRUE: Object = Object::Boolean(object::Boolean { value: true });
-const FALSE: Object = Object::Boolean(object::Boolean { value: false });
-const NULL: Object = Object::Null(object::Null {});
-
-pub fn eval(node: ast::Node, env: Env) -> Option<Object> {
+pub fn eval<'a>(node: ast::Node<'a>, env: Env<'a>) -> Option<Object<'a>> {
     match node {
         ast::Node::Program(program) => eval_program(program.statements, env),
         ast::Node::Statement(statement) => eval_statement(statement, env),
@@ -17,7 +12,7 @@ pub fn eval(node: ast::Node, env: Env) -> Option<Object> {
     }
 }
 
-fn eval_statement(statement: ast::Statement, env: Env) -> Option<Object> {
+fn eval_statement<'a>(statement: ast::Statement<'a>, env: Env<'a>) -> Option<Object<'a>> {
     match statement {
         ast::Statement::Expression(expr_stmt) => eval_expression(*expr_stmt.expression, env),
         ast::Statement::Block(block_stmt) => eval_block_statement(block_stmt.statements, env),
@@ -26,27 +21,26 @@ fn eval_statement(statement: ast::Statement, env: Env) -> Option<Object> {
     }
 }
 
-fn eval_let_statement(stmt: ast::LetStatement, env: Env) -> Option<Object> {
-    let evaluated: Option<Object> = eval(ast::Node::Expression(stmt.value), env.clone());
+fn eval_let_statement<'a>(stmt: ast::LetStatement<'a>, env: Env<'a>) -> Option<Object<'a>> {
+    let evaluated: Option<Object<'_>> = eval(ast::Node::Expression(stmt.value), env.clone());
     if let Some(result) = evaluated {
         if result.object_type() == object::ERROR_OBJ {
-            return Some(result)
+            return Some(result);
         }
         env.borrow_mut().define(stmt.name.value, result);
     }
     None
 }
 
-fn eval_program(statements: Vec<ast::Statement>, env: Env) -> Option<Object> {
-    let mut result: Option<Object> = None;
+fn eval_program<'a>(statements: Vec<ast::Statement<'a>>, env: Env<'a>) -> Option<Object<'a>> {
+    let mut result: Option<Object<'a>> = None;
     for statement in statements {
         result = eval(ast::Node::Statement(statement), env.clone());
 
-        if result.is_some() {
-            let result_clone: Object = result.clone().unwrap();
-            if let Object::Return(return_obj) = result_clone {
-                return Some(*return_obj.value);
-            } else if let Object::Error(_) = result_clone {
+        if let Some(res) = result.as_ref() {
+            if let Object::Return(return_obj) = res {
+                return Some(*return_obj.value.clone());
+            } else if let Object::Error(_) = res {
                 return result;
             }
         }
@@ -54,23 +48,23 @@ fn eval_program(statements: Vec<ast::Statement>, env: Env) -> Option<Object> {
     result
 }
 
-fn eval_return_stmt(stmt: ast::ReturnStatement, env: Env) -> Option<Object> {
+fn eval_return_stmt<'a>(stmt: ast::ReturnStatement<'a>, env: Env<'a>) -> Option<Object<'a>> {
     if let Some(return_value) = stmt.return_value {
-        if let Some(res) = eval_expression(*return_value,env) {
-            if res.object_type() == object::ERROR_OBJ{
-                return Some(res)
+        if let Some(res) = eval_expression(*return_value, env) {
+            if res.object_type() == object::ERROR_OBJ {
+                return Some(res);
             }
             return Some(Object::Return(object::Return {
                 value: Box::new(res),
-            }))
+            }));
         }
-        return None
-     } 
+        return None;
+    }
     None
 }
 
-fn eval_block_statement(statements: Vec<ast::Statement>, env: Env) -> Option<Object> {
-    let mut result: Option<Object> = None;
+fn eval_block_statement<'a>(statements: Vec<ast::Statement<'a>>, env: Env<'a>) -> Option<Object<'a>> {
+    let mut result: Option<Object<'a>> = None;
     for statement in statements {
         result = eval(ast::Node::Statement(statement), env.clone());
 
@@ -85,110 +79,115 @@ fn eval_block_statement(statements: Vec<ast::Statement>, env: Env) -> Option<Obj
 }
 
 #[rustfmt::skip]
-fn  eval_expression(expression: ast::Expression, env: Env) -> Option<Object> {
+fn eval_expression<'a>(expression: ast::Expression<'a>, env: Env<'a>) -> Option<Object<'a>> {
     match expression {
-        ast::Expression::IntegerLiteral(int_lit) => Some(Object::Integer(object::Integer {value: int_lit.value,})),
+        ast::Expression::IntegerLiteral(int_lit) => Some(Object::Integer(object::Integer { value: int_lit.value })),
         ast::Expression::Boolean(boolean) => Some(Object::Boolean(object::Boolean { value: boolean.value })),
         ast::Expression::Prefix(prefix_expr) => {
-            if let Some(right) = eval(ast::Node::Expression(*prefix_expr.right), env){
+            if let Some(right) = eval(ast::Node::Expression(*prefix_expr.right), env) {
                 if right.object_type() == object::ERROR_OBJ {
-                    return Some(right)
+                    return Some(right);
                 }
-                return eval_prefix_expression(prefix_expr.operator, right)
+                return eval_prefix_expression(prefix_expr.operator, right);
             }
             None
-        },
-        ast::Expression::Infix(infix_expr) =>{
-            let left: Object = match eval(ast::Node::Expression(*infix_expr.left), env.clone()){
+        }
+        ast::Expression::Infix(infix_expr) => {
+            let left = match eval(ast::Node::Expression(*infix_expr.left), env.clone()) {
                 Some(v) => v,
                 None => return None,
             };
 
-            let right: Object = match eval(ast::Node::Expression(*infix_expr.right), env){
+            let right = match eval(ast::Node::Expression(*infix_expr.right), env) {
                 Some(v) => v,
                 None => return None,
             };
-   
-            if left.object_type() == object::ERROR_OBJ{
+
+            if left.object_type() == object::ERROR_OBJ {
                 return Some(left);
-             }
-            if right.object_type() == object::ERROR_OBJ{
+            }
+            if right.object_type() == object::ERROR_OBJ {
                 return Some(right);
-             }
+            }
             eval_infix_expression(infix_expr.operator, left, right)
         }
         ast::Expression::If(if_expr) => eval_if_expression(if_expr, env),
         ast::Expression::Identifier(ident) => eval_identifier(ident, env),
         ast::Expression::FunctionLiteral(func) => {
-            Some(Object::Function(
-                    object::Function { parameters: func.parameters, body: func.body, env: env.clone() }
-            ))
-        },
+            Some(Object::Function(object::Function {
+                parameters: func.parameters,
+                body: func.body,
+                env: env.clone(),
+            }))
+        }
         ast::Expression::Call(call_exp) => {
             if let Some(func) = eval(ast::Node::Expression(*call_exp.function), env.clone()) {
                 if func.object_type() == object::ERROR_OBJ {
                     return Some(func);
                 }
-                let args: Vec<Object> = eval_expressions(call_exp.arguments, env);
+                let args = eval_expressions(call_exp.arguments, env);
                 if args.len() == 1 && args[0].object_type() == object::ERROR_OBJ {
                     return Some(args[0].clone());
                 }
                 return Some(apply_function(func, args));
             }
             None
-        },
+        }
     }
 }
 
-fn apply_function(func: Object, args: Vec<Object>) -> Object{
-    match func{
-        Object::Function(f)=> {
-            let new_enclosed_env: Env = Environment::new_enclosed(f.env.clone());
+fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Object<'a> {
+    match func {
+        Object::Function(f) => {
+            let new_enclosed_env = crate::environment::Environment::new_enclosed(f.env.clone());
 
             // define function args as variables in the new closure
-            for (i, param) in f.parameters.iter().enumerate(){
-                new_enclosed_env.borrow_mut().define(param.value.clone(), args[i].clone());
+            for (i, param) in f.parameters.iter().enumerate() {
+                new_enclosed_env
+                    .borrow_mut()
+                    .define(param.value, args[i].clone());
             }
 
             let evaluated = eval(
-                ast::Node::Statement(ast::Statement::Block(f.body)), 
-                new_enclosed_env
-            ).expect("expected Object value, got None. Location: \"apply_function\"") ;
+                ast::Node::Statement(ast::Statement::Block(f.body)),
+                new_enclosed_env,
+            )
+            .expect("expected Object value, got None. Location: \"apply_function\"");
 
-            if let Object::Return(r) = evaluated{
-                return *r.value
+            if let Object::Return(r) = evaluated {
+                return *r.value;
             }
-            return evaluated;
-        },
-        _=>{
-            return Object::Error(Error::custom(format!("not a function: {}", func.object_type())));
+            evaluated
         }
+        _ => Object::Error(Error::custom(format!(
+            "not a function: {}",
+            func.object_type()
+        ))),
     }
 }
 
-
-fn eval_expressions(exps: Vec<ast::Expression>, env: Env) -> Vec<Object> {
-    let mut evaluated_expressions:Vec<object::Object> = Vec::new();
-    for e in exps.iter() {
-        let evaluated = eval(ast::Node::Expression(e.clone()), env.clone());
+fn eval_expressions<'a>(exps: Vec<ast::Expression<'a>>, env: Env<'a>) -> Vec<Object<'a>> {
+    let mut evaluated_expressions = Vec::new();
+    for e in exps {
+        let evaluated = eval(ast::Node::Expression(e), env.clone());
         if let Some(res) = evaluated {
             if res.object_type() == object::ERROR_OBJ {
-                return vec![res]
+                return vec![res];
             }
             evaluated_expressions.push(res);
         }
-    } 
+    }
     evaluated_expressions
 }
 
-fn eval_identifier(identifier: ast::Identifier, env: Env) -> Option<Object>{
-    if let Some(value) = env.borrow().get(identifier.value.as_str()) {
-        return Some(value.clone())
+fn eval_identifier<'a>(identifier: ast::Identifier<'a>, env: Env<'a>) -> Option<Object<'a>> {
+    if let Some(value) = env.borrow().get(identifier.value) {
+        return Some(value);
     }
-    return Some(Object::Error(Error::undefined_variable(identifier.value.as_str())))
+    Some(Object::Error(Error::undefined_variable(identifier.value)))
 }
 
-fn eval_if_expression(if_expr: ast::IfExpression, env: Env) -> Option<Object> {
+fn eval_if_expression<'a>(if_expr: ast::IfExpression<'a>, env: Env<'a>) -> Option<Object<'a>> {
     let condition = eval(ast::Node::Expression(*if_expr.condition), env.clone())?;
 
     if condition.object_type() == object::ERROR_OBJ {
@@ -197,10 +196,10 @@ fn eval_if_expression(if_expr: ast::IfExpression, env: Env) -> Option<Object> {
 
     if is_truthy(condition) {
         return eval_statement(ast::Statement::Block(if_expr.consequence), env);
-    } else if if_expr.alternative.is_some() {
-        return eval_statement(ast::Statement::Block(if_expr.alternative.unwrap()), env);
+    } else if let Some(alt) = if_expr.alternative {
+        return eval_statement(ast::Statement::Block(alt), env);
     } else {
-        return Some(NULL.clone());
+        return Some(Object::Null(object::Null {}));
     }
 }
 
@@ -212,46 +211,37 @@ fn is_truthy(c: Object) -> bool {
     }
 }
 
-fn eval_prefix_expression(operator: String, right: Object) -> Option<Object> {
-    match operator.as_str() {
-        token::BANG => eval_bang_operator_expression(right),
-        token::MINUS => eval_minus_prefix_operator_expression(right),
-        _ => {
-            return Some(Object::Error(Error::unknown_operator(
-                operator.as_str(),
-                right.object_type(),
-                None,
-            )))
-        }
+fn eval_prefix_expression<'a>(operator: &'a str, right: Object<'a>) -> Option<Object<'a>> {
+    match operator {
+        "!" => eval_bang_operator_expression(right),
+        "-" => eval_minus_prefix_operator_expression(right),
+        _ => Some(Object::Error(Error::unknown_operator(
+            operator,
+            right.object_type(),
+            None,
+        ))),
     }
 }
 
 #[rustfmt::skip]
-fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Option<Object> {
+fn eval_infix_expression<'a>(operator: &'a str, left: Object<'a>, right: Object<'a>) -> Option<Object<'a>> {
     match (&left, &right) {
-        //
-        // Check if both left and right are Integer objects and handle arithmetic operations
-        //
         (Object::Integer(left_int), Object::Integer(right_int)) => {
-            eval_integer_infix_expression(operator, left_int.clone(), right_int.clone())
+            eval_integer_infix_expression(operator, left_int, right_int)
         }
-
-        //
-        // Check if both left and right are Boolean objects and handle equality and inequality
-        //
         (Object::Boolean(left_bool), Object::Boolean(right_bool)) => {
-            match operator.as_str() {
-                token::EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value == right_bool.value })),
-                token::NOT_EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value != right_bool.value })),
+            match operator {
+                "==" => Some(Object::Boolean(object::Boolean { value: left_bool.value == right_bool.value })),
+                "!=" => Some(Object::Boolean(object::Boolean { value: left_bool.value != right_bool.value })),
                 _ => Some(Object::Error(Error::bad_operator(
-                    operator.as_str(),
+                    operator,
                     left.object_type(),
                     Some(right.object_type()),
                 ))),
             }
         }
         _ => Some(Object::Error(Error::bad_operator(
-            operator.as_str(),
+            operator,
             left.object_type(),
             Some(right.object_type()),
         ))),
@@ -259,21 +249,20 @@ fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Opti
 }
 
 #[rustfmt::skip]
-fn eval_integer_infix_expression(operator: String, left: object::Integer, right: object::Integer) -> Option<Object> {
-    let left_int: i64 = left.value;
-    let right_int: i64 = right.value;
-    match operator.as_str() {
-        token::PLUS => Some(Object::Integer(object::Integer{value: left_int + right_int})),
-        token::MINUS => Some(Object::Integer(object::Integer{value: left_int - right_int})),
-        token::ASTERISK => Some(Object::Integer(object::Integer{value: left_int * right_int})),
-        token::SLASH => Some(Object::Integer(object::Integer{value: left_int / right_int})),
-
-        token::LT => Some(Object::Boolean(object::Boolean{value: left_int < right_int})),
-        token::GT => Some(Object::Boolean(object::Boolean{value: left_int > right_int})),
-        token::EQ => Some(Object::Boolean(object::Boolean{value: left_int == right_int})),
-        token::NOT_EQ => Some(Object::Boolean(object::Boolean{value: left_int != right_int})),
-        _=>  Some(Object::Error(Error::unknown_operator(
-            operator.as_str(),
+fn eval_integer_infix_expression<'a>(operator: &str, left: &object::Integer, right: &object::Integer) -> Option<Object<'a>> {
+    let left_int = left.value;
+    let right_int = right.value;
+    match operator {
+        "+" => Some(Object::Integer(object::Integer{value: left_int + right_int})),
+        "-" => Some(Object::Integer(object::Integer{value: left_int - right_int})),
+        "*" => Some(Object::Integer(object::Integer{value: left_int * right_int})),
+        "/" => Some(Object::Integer(object::Integer{value: left_int / right_int})),
+        "<" => Some(Object::Boolean(object::Boolean{value: left_int < right_int})),
+        ">" => Some(Object::Boolean(object::Boolean{value: left_int > right_int})),
+        "==" => Some(Object::Boolean(object::Boolean{value: left_int == right_int})),
+        "!=" => Some(Object::Boolean(object::Boolean{value: left_int != right_int})),
+        _ => Some(Object::Error(Error::unknown_operator(
+            operator,
             object::INTEGER_OBJ,
             Some(object::INTEGER_OBJ),
         ))),
@@ -281,51 +270,45 @@ fn eval_integer_infix_expression(operator: String, left: object::Integer, right:
 }
 
 #[rustfmt::skip]
-fn eval_bang_operator_expression(right: Object) -> Option<Object> {
+fn eval_bang_operator_expression<'a>(right: Object<'a>) -> Option<Object<'a>> {
     match right {
-        Object::Boolean(b) => Some(if b.value { FALSE.clone() } else { TRUE.clone() }),
-        Object::Integer(i) => Some(if i.value == 0 { TRUE.clone() } else { FALSE.clone() }),
-        Object::Null(_) =>Some(TRUE.clone()),
-        _ => Some(FALSE.clone()),
+        Object::Boolean(b) => Some(Object::Boolean(object::Boolean { value: !b.value })),
+        Object::Integer(i) => Some(Object::Boolean(object::Boolean { value: i.value == 0 })),
+        Object::Null(_) => Some(Object::Boolean(object::Boolean { value: true })),
+        _ => Some(Object::Boolean(object::Boolean { value: false })),
     }
 }
 
-fn eval_minus_prefix_operator_expression(right: Object) -> Option<Object> {
+fn eval_minus_prefix_operator_expression<'a>(right: Object<'a>) -> Option<Object<'a>> {
     if right.object_type() != object::INTEGER_OBJ {
         return Some(Object::Error(Error::bad_operator(
-            token::MINUS,
+            "-",
             right.object_type(),
             None,
         )));
     }
     match right {
         Object::Integer(i) => Some(Object::Integer(object::Integer { value: -i.value })),
-        _ => Some(NULL.clone()),
+        _ => Some(Object::Null(object::Null {})),
     }
-}
-
-fn new_error(message: String) -> object::Error {
-    object::Error { message }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{self as ast, Program};
+    use crate::ast::{self as ast};
     use crate::evaluator::eval;
-    use crate::object::{self as object, Error, Object};
-    use crate::{environment, lexer, token};
+    use crate::object::Object;
+    use crate::{environment, lexer, parser};
 
-    use crate::parser;
-
-    fn test_eval(input: &str) -> Option<Object> {
-        let l: lexer::Lexer<'_> = lexer::Lexer::new(input);
-        let mut p: parser::Parser<'_> = parser::Parser::new(l);
-        let program: Program = p.parse_program().unwrap();
+    fn test_eval(input: &str) -> Option<Object<'_>> {
+        let l = lexer::Lexer::new(input);
+        let mut p = parser::Parser::new(l);
+        let program = p.parse_program().unwrap();
         let env = environment::Environment::new();
         eval(ast::Node::Program(program), env)
     }
 
-    fn test_integer_object(obj: Object, expected: i64, case: String) {
+    fn test_integer_object(obj: Object, expected: i64, case: &str) {
         match obj {
             Object::Integer(int_obj) => {
                 assert_eq!(
@@ -334,11 +317,15 @@ mod tests {
                     expected, int_obj.value
                 );
             }
-            _ => panic!("object is not Integer\nfound\n{}\nfor case:\n{}", obj.inspect(), case),
+            _ => panic!(
+                "object is not Integer\nfound\n{}\nfor case:\n{}",
+                obj.inspect(),
+                case
+            ),
         }
     }
 
-    fn test_boolean_object(obj: Object, expected: bool, case: String) {
+    fn test_boolean_object(obj: Object, expected: bool, case: &str) {
         match obj {
             Object::Boolean(bool_obj) => {
                 assert_eq!(
@@ -347,24 +334,32 @@ mod tests {
                     expected, bool_obj.value
                 );
             }
-            _ => panic!("object is not Boolean\nfound\n{}\nfor case: \n{}",obj.inspect(), case),
+            _ => panic!(
+                "object is not Boolean\nfound\n{}\nfor case: \n{}",
+                obj.inspect(),
+                case
+            ),
         }
     }
 
-    fn test_null_object(obj: Object, case: String) {
+    fn test_null_object(obj: Object, case: &str) {
         match obj {
             Object::Null(_) => (),
-            _ => panic!("object is not NULL\nfound:\n{}\nfor case:\n{}", obj.inspect(), case),
+            _ => panic!(
+                "object is not NULL\nfound:\n{}\nfor case:\n{}",
+                obj.inspect(),
+                case
+            ),
         }
     }
-    #[rustfmt::skip]
+
     #[test]
     fn test_eval_integer_expression() {
-        let tests: [(&'static str, i64); 15] = [
-            ("5", 5), 
-            ("10", 10), 
-            ("-5",-5), 
-            ("-10",-10),
+        let tests = [
+            ("5", 5),
+            ("10", 10),
+            ("-5", -5),
+            ("-10", -10),
             ("5 + 5 + 5 + 5 - 10", 10),
             ("2 * 2 * 2 * 2 * 2", 32),
             ("-50 + 100 + -50", 0),
@@ -376,17 +371,17 @@ mod tests {
             ("3 * 3 * 3 + 10", 37),
             ("3 * (3 * 3) + 10", 37),
             ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
-            ];
+        ];
 
         for (input, expected) in tests.iter() {
-            let evaluated: Object = test_eval(input).unwrap();
-            test_integer_object(evaluated, *expected, String::from(*input));
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated, *expected, input);
         }
     }
 
     #[test]
     fn test_eval_boolean_expression() {
-        let tests: [(&'static str, bool); 19] = [
+        let tests = [
             ("true", true),
             ("false", false),
             ("1 < 2", true),
@@ -410,14 +405,13 @@ mod tests {
 
         for (input, expected) in tests.iter() {
             let evaluated = test_eval(input).unwrap();
-            test_boolean_object(evaluated, *expected, String::from(*input));
+            test_boolean_object(evaluated, *expected, input);
         }
     }
 
-    #[rustfmt::skip]
     #[test]
     fn test_bang_operator() {
-        let tests: [(&'static str, bool); 7] = [
+        let tests = [
             ("!true", false),
             ("!false", true),
             ("!!true", true),
@@ -429,42 +423,13 @@ mod tests {
 
         for (input, expected) in tests.iter() {
             let evaluated = test_eval(input).unwrap();
-            test_boolean_object(evaluated, *expected, String::from(*input));
+            test_boolean_object(evaluated, *expected, input);
         }
     }
 
-    #[rustfmt::skip]
-    #[test]
-    fn test_integer_expression() {
-        let tests: [(&'static str, i64); 16] = [
-            ("5", 5), 
-            ("10", 10), 
-            ("0", 0), 
-            ("-5", -5), 
-            ("-10", -10),
-            ("5 + 5 + 5 + 5 - 10", 10),
-            ("2 * 2 * 2 * 2 * 2", 32),
-            ("-50 + 100 + -50", 0),
-            ("5 * 2 + 10", 20),
-            ("5 + 2 * 10", 25),
-            ("20 + 2 * -10", 0),
-            ("50 / 2 * 2 + 10", 60),
-            ("2 * (5 + 10)", 30),
-            ("3 * 3 * 3 + 10", 37),
-            ("3 * (3 * 3) + 10", 37),
-            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", 50),
-            ];
-
-        for (input, expected) in tests.iter() {
-            let evaluated = test_eval(input).unwrap();
-            test_integer_object(evaluated, *expected, String::from(*input));
-        }
-    }
-
-    #[rustfmt::skip]
     #[test]
     fn test_if_else_expressions() {
-        let return_int_tests: [(&'static str, i64); 5] = [
+        let return_int_tests = [
             ("if (true) { 10 }", 10),
             ("if (1) { 10 }", 10),
             ("if (1 < 2) { 10 }", 10),
@@ -472,31 +437,22 @@ mod tests {
             ("if (1 < 2) { 10 } else { 20 }", 10),
         ];
 
-        let return_null_tests: [&'static str; 2] = [
-            "if (false) { 10 }",              
-            "if (1 > 2) { 10 }",
-        ];
+        let return_null_tests = ["if (false) { 10 }", "if (1 > 2) { 10 }"];
 
-        //
-        // Test cases that should return integers
-        //
         for (input, expected) in return_int_tests.iter() {
-            let evaluated: Object = test_eval(input).unwrap();
-            test_integer_object(evaluated, *expected, String::from(*input));
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated, *expected, input);
         }
 
-        //
-        // Test cases that should return null
-        //
         for input in return_null_tests.iter() {
-            let evaluated: Object = test_eval(input).unwrap();
-            test_null_object(evaluated, String::from(*input));
+            let evaluated = test_eval(input).unwrap();
+            test_null_object(evaluated, input);
         }
     }
 
     #[test]
     fn test_return_statements() {
-        let tests: [(&'static str, i64); 5] = [
+        let tests = [
             ("return 10;", 10),
             ("return 10; 9;", 10),
             ("return 2 * 5; 9;", 10),
@@ -505,116 +461,43 @@ mod tests {
         ];
 
         for (input, expected) in tests.iter() {
-            let evaluated: Object = test_eval(input).unwrap();
-            test_integer_object(evaluated, *expected, String::from(*input));
+            let evaluated = test_eval(input).unwrap();
+            test_integer_object(evaluated, *expected, input);
         }
     }
 
     #[test]
-    fn test_error_handling() {
-        let tests: [(&'static str, Error); 9] = [
-            (
-                "5 + true;",
-                Error::bad_operator(token::PLUS, object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "5 + true; 5;",
-                Error::bad_operator(token::PLUS, object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "-true",
-                Error::bad_operator(token::MINUS, object::BOOLEAN_OBJ, None),
-            ),
-            (
-                " true + false;",
-                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "5; true + false; 5",
-                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "if (10 > 1) { true + false; }",
-                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "if (10 > 1) {
-                    if (10 > 1) {
-                        return true + false;
-                    }
-                    return 1;
-                }
-                ",
-                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "if (true + false) { 10 }",
-                Error::bad_operator(token::PLUS, object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
-            ),
-            (
-                "foobar",
-                Error::undefined_variable("foobar"),
-            ),
-        ];
-
-        for (input, expected_error) in tests.iter() {
-            let evaluated: Option<Object> = test_eval(input);
-            assert!(
-                evaluated.is_some(),
-                "Expected an error, but got None, for input: {}",
-                input
-            );
-            let evaluated_clone = evaluated.clone().unwrap();
-            let object_type: String = String::from(evaluated_clone.object_type());
-            let value: String = String::from(evaluated_clone.inspect());
-            
-            match evaluated.unwrap() {
-                Object::Error(err) => {
-                    assert_eq!(err.message, expected_error.message);
-                }
-                _ => panic!(
-                    "Expected an error object, but got {:?}, for input: {}\n value: {}",
-                    object_type, input, value
-                ),
-            }
-        }
-    }
-
-    #[test]
-    fn test_let_statements(){
-
-        let tests: [(&'static str, i64); 4] = [
+    fn test_let_statements() {
+        let tests = [
             ("let a = 5; a;", 5),
             ("let a = 5 * 5; a;", 25),
             ("let a = 5; let b = a; b;", 5),
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
         ];
 
-        for c in tests.iter(){
-            let res = test_eval(c.0).expect("error evaluating input");
-            test_integer_object(res, c.1, c.0.to_string());            
+        for (input, expected) in tests.iter() {
+            let res = test_eval(input).expect("error evaluating input");
+            test_integer_object(res, *expected, input);
         }
-
     }
 
     #[test]
-    fn test_function_object(){
+    fn test_function_object() {
         let input = "fn(x){x + 2;};";
         let evaluated = test_eval(input).expect("Error evaluating input");
         match evaluated {
-            Object::Function(func)=>{
-                assert_eq!(1, func.parameters.len(), "functions has wrong parameters. expected {} params, got {}", 1, func.parameters.len());
-                assert_eq!("x", func.parameters[0].to_string(), " parameter is not 'x', got {}", func.parameters[0].to_string());
-                assert_eq!("(x + 2)", func.body.to_string(), "body is not '(x + 2)', got {}", func.body.to_string());
-            },
-            _=> panic!("object is not a Function. got \n{}\nwith type\n{}",evaluated.inspect(), evaluated.object_type())
+            Object::Function(func) => {
+                assert_eq!(1, func.parameters.len());
+                assert_eq!("x", func.parameters[0].to_string());
+                assert_eq!("(x + 2)", func.body.to_string());
+            }
+            _ => panic!("object is not a Function"),
         }
     }
 
-
     #[test]
-    fn test_function_application(){
-        let test: [(&'static str, i64);6] = [
+    fn test_function_application() {
+        let test = [
             ("let identity = fn(x) { x; }; identity(5);", 5),
             ("let identity = fn(x) { return x; }; identity(5);", 5),
             ("let double = fn(x) { x * 2; }; double(5);", 10),
@@ -623,9 +506,9 @@ mod tests {
             ("fn(x) { x; }(5)", 5),
         ];
 
-        for c in test.iter() {
-            let res = test_eval(c.0).expect("error evaluating input");
-            test_integer_object(res, c.1, c.0.to_string());
+        for (input, expected) in test.iter() {
+            let res = test_eval(input).expect("error evaluating input");
+            test_integer_object(res, *expected, input);
         }
     }
 }

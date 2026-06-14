@@ -1,89 +1,117 @@
 #![allow(dead_code)]
 
-pub type TokenType = String;
+use std::fmt;
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Token {
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum TokenType {
+    Illegal,
+    Eof,
+
+    // Identifiers + literals
+    Ident,
+    Int,
+
+    // Operators
+    Assign,
+    Plus,
+    Minus,
+    Bang,
+    Asterisk,
+    Slash,
+    Lt,
+    Gt,
+    Eq,
+    NotEq,
+
+    // Delimiters
+    Comma,
+    Semicolon,
+    Lparen,
+    Rparen,
+    Lbrace,
+    Rbrace,
+
+    // Keywords
+    Function,
+    Let,
+    True,
+    False,
+    If,
+    Else,
+    Return,
+}
+
+impl fmt::Display for TokenType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            TokenType::Illegal => "ILLEGAL",
+            TokenType::Eof => "EOF",
+            TokenType::Ident => "IDENT",
+            TokenType::Int => "INT",
+            TokenType::Assign => "=",
+            TokenType::Plus => "+",
+            TokenType::Minus => "-",
+            TokenType::Bang => "!",
+            TokenType::Asterisk => "*",
+            TokenType::Slash => "/",
+            TokenType::Lt => "<",
+            TokenType::Gt => ">",
+            TokenType::Eq => "==",
+            TokenType::NotEq => "!=",
+            TokenType::Comma => ",",
+            TokenType::Semicolon => ";",
+            TokenType::Lparen => "(",
+            TokenType::Rparen => ")",
+            TokenType::Lbrace => "{",
+            TokenType::Rbrace => "}",
+            TokenType::Function => "FUNCTION",
+            TokenType::Let => "LET",
+            TokenType::True => "TRUE",
+            TokenType::False => "FALSE",
+            TokenType::If => "IF",
+            TokenType::Else => "ELSE",
+            TokenType::Return => "RETURN",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct Token<'a> {
     pub toke_type: TokenType,
-    pub literal: String,
+    pub literal: &'a str,
 }
 
-impl Token {
-    pub fn new(token_type: &str, ch: &str) -> Self {
+impl<'a> Token<'a> {
+    pub fn new(token_type: TokenType, literal: &'a str) -> Self {
         Self {
-            toke_type: token_type.to_string(),
-            literal: ch.to_string(),
-        }
-    }
-    pub fn new_empty() -> Self {
-        Self {
-            toke_type: "".to_string(),
-            literal: "".to_string(),
+            toke_type: token_type,
+            literal,
         }
     }
 }
 
-pub const ILLEGAL: &str = "ILLEGAL";
-pub const EOF: &str = "EOF";
-
-// Identifiers + literals
-pub const IDENT: &str = "IDENT";
-pub const INT: &str = "INT";
-
-// Operators
-pub const ASSIGN: &str = "=";
-pub const PLUS: &str = "+";
-pub const MINUS: &str = "-";
-pub const BANG: &str = "!";
-pub const ASTERISK: &str = "*";
-pub const SLASH: &str = "/";
-pub const LT: &str = "<";
-pub const GT: &str = ">";
-
-pub const EQ: &str = "==";
-pub const NOT_EQ: &str = "!=";
-// Delimiters
-pub const COMMA: &str = ",";
-pub const SEMICOLON: &str = ";";
-pub const LPAREN: &str = "(";
-pub const RPAREN: &str = ")";
-pub const LBRACE: &str = "{";
-pub const RBRACE: &str = "}";
-
-// Keywords
-pub const FUNCTION: &str = "FUNCTION";
-pub const LET: &str = "LET";
-pub const TRUE: &str = "TRUE";
-pub const FALSE: &str = "FALSE";
-pub const IF: &str = "IF";
-pub const ELSE: &str = "ELSE";
-pub const RETURN: &str = "RETURN";
-
-pub const KEYWORDS: [(&str, &str); 7] = [
-    ("fn", FUNCTION),
-    ("let", LET),
-    ("true", TRUE),
-    ("false", FALSE),
-    ("if", IF),
-    ("else", ELSE),
-    ("return", RETURN),
-];
-
-pub fn lookup_identifier(ident: &str) -> &str {
-    for kw in KEYWORDS {
-        if ident == kw.0 {
-            return kw.1;
-        }
+pub fn lookup_identifier(ident: &str) -> TokenType {
+    match ident {
+        "fn" => TokenType::Function,
+        "let" => TokenType::Let,
+        "true" => TokenType::True,
+        "false" => TokenType::False,
+        "if" => TokenType::If,
+        "else" => TokenType::Else,
+        "return" => TokenType::Return,
+        _ => TokenType::Ident,
     }
-    return IDENT;
 }
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
     fn test_lookup_ident() {
-        use crate::token::{lookup_identifier, FUNCTION, LET};
-        assert_eq!(FUNCTION, lookup_identifier("fn"));
-        assert_eq!(LET, lookup_identifier("let"));
+        assert_eq!(TokenType::Function, lookup_identifier("fn"));
+        assert_eq!(TokenType::Let, lookup_identifier("let"));
+        assert_eq!(TokenType::Ident, lookup_identifier("foobar"));
     }
 }

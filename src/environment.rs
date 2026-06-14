@@ -2,35 +2,35 @@
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::object::Object;
-pub type Env = Rc<RefCell<Environment>>;
 
+pub type Env<'a> = Rc<RefCell<Environment<'a>>>;
 
 #[derive(Debug, Clone)]
-pub struct Environment {
-    store: HashMap<String,  Object>,
-    outer: Option<Env>,
+pub struct Environment<'a> {
+    store: HashMap<&'a str, Object<'a>>,
+    outer: Option<Env<'a>>,
 }
 
-impl Environment {
-    pub fn new() -> Env {
-        Rc::new(RefCell::new(Environment{
+impl<'a> Environment<'a> {
+    pub fn new() -> Env<'a> {
+        Rc::new(RefCell::new(Environment {
             store: HashMap::new(),
             outer: None,
         }))
     }
 
-    pub fn new_enclosed(outer: Env) -> Env{
-        Rc::new(RefCell::new(Environment{
+    pub fn new_enclosed(outer: Env<'a>) -> Env<'a> {
+        Rc::new(RefCell::new(Environment {
             store: HashMap::new(),
             outer: Some(outer),
         }))
     }
 
-    pub fn define(&mut self, name: String, value: Object){
+    pub fn define(&mut self, name: &'a str, value: Object<'a>) {
         self.store.insert(name, value);
     }
 
-    pub fn get(&self, name: &str) -> Option<Object>{
+    pub fn get(&self, name: &str) -> Option<Object<'a>> {
         match self.store.get(name) {
             Some(value) => Some(value.clone()),
             None => {

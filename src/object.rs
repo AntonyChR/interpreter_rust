@@ -10,17 +10,17 @@ pub const ERROR_OBJ: &str = "ERROR";
 pub const FUNCTION_OBJ: &str = "FUNCTION";
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum Object {
+pub enum Object<'a> {
     Integer(Integer),
     Boolean(Boolean),
-    Return(Return),
+    Return(Return<'a>),
     Null(Null),
     Error(Error),
-    Function(Function),
+    Function(Function<'a>),
 }
 
 #[allow(dead_code)]
-impl Object{
+impl<'a> Object<'a> {
     pub fn object_type(&self) -> &str {
         match self {
             Object::Integer(_) => INTEGER_OBJ,
@@ -40,12 +40,14 @@ impl Object{
             Object::Null(_) => "null".to_string(),
             Object::Error(e) => format!("Error: {}", e.message),
             Object::Function(f) => {
-                let params:String = f.parameters.iter()
+                let params: String = f
+                    .parameters
+                    .iter()
                     .map(|v| v.to_string())
                     .collect::<Vec<String>>()
                     .join(", ");
-                format!("fn({}) {{\n{}\n}}",params,f.body.to_string())
-            },
+                format!("fn({}) {{\n{}\n}}", params, f.body.to_string())
+            }
         }
     }
 }
@@ -64,8 +66,8 @@ pub struct Boolean {
 pub struct Null {}
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct Return{
-    pub value: Box<Object>,
+pub struct Return<'a> {
+    pub value: Box<Object<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -74,23 +76,23 @@ pub struct Error {
 }
 
 #[derive(Debug)]
-pub struct Function{
-    pub parameters: Vec<ast::Identifier>,
-    pub body: ast::BlockStatement,
-    pub env: Env,
+pub struct Function<'a> {
+    pub parameters: Vec<ast::Identifier<'a>>,
+    pub body: ast::BlockStatement<'a>,
+    pub env: Env<'a>,
 }
 
-impl Clone for Function {
+impl<'a> Clone for Function<'a> {
     fn clone(&self) -> Self {
         Self {
             parameters: self.parameters.clone(),
             body: self.body.clone(),
             env: self.env.clone(),
         }
-    }    
+    }
 }
 
-impl PartialEq for Function{
+impl<'a> PartialEq for Function<'a> {
     fn eq(&self, _: &Self) -> bool {
         false
     }
