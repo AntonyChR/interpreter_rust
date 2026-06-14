@@ -228,17 +228,12 @@ fn eval_prefix_expression(operator: String, right: Object) -> Option<Object> {
 
 #[rustfmt::skip]
 fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Option<Object> {
-    let left_clone: Object = left.clone();
-    let right_clone: Object = right.clone();
-    let left_type: &str = left_clone.object_type();
-    let right_type: &str = right_clone.object_type();
-    
-    match (left, right) {
+    match (&left, &right) {
         //
         // Check if both left and right are Integer objects and handle arithmetic operations
         //
         (Object::Integer(left_int), Object::Integer(right_int)) => {
-            eval_integer_infix_expression(operator, left_int, right_int)
+            eval_integer_infix_expression(operator, left_int.clone(), right_int.clone())
         }
 
         //
@@ -250,15 +245,15 @@ fn eval_infix_expression(operator: String, left: Object, right: Object ) -> Opti
                 token::NOT_EQ => Some(Object::Boolean(object::Boolean { value: left_bool.value != right_bool.value })),
                 _ => Some(Object::Error(Error::bad_operator(
                     operator.as_str(),
-                    left_type,
-                    Some(right_type),
+                    left.object_type(),
+                    Some(right.object_type()),
                 ))),
             }
         }
         _ => Some(Object::Error(Error::bad_operator(
             operator.as_str(),
-            left_type,
-            Some(right_type),
+            left.object_type(),
+            Some(right.object_type()),
         ))),
     }
 }
