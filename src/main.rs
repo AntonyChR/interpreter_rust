@@ -15,10 +15,11 @@ const BANNER: &str = r"
  | |__   _ __ ___  _ __ ___   __ _ 
  |  __| | '_ ` _ \| '_ ` _ \ / _` |
  | |____| | | | | | | | | | | (_| |
- |______|_| |_| |_|_| |_| |_|\__,_| 0.1 
-";
+ |______|_| |_| |_|_| |_| |_|\__,_|";
+
+const GIT_HASH: &str = env!("GIT_HASH");
 
 fn main() {
-    println!("{BANNER}");
+    println!("{BANNER} {GIT_HASH}");
     repl::start();
 }
