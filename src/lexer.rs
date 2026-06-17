@@ -3,6 +3,8 @@
 use crate::token::{self, Token, TokenType};
 use crate::utils::*;
 
+pub const DOUBLE_QUOTE: &str = r#"""#;
+
 #[derive(Copy, Clone)]
 pub struct Lexer<'a> {
     input: &'a str,
@@ -58,6 +60,18 @@ impl<'a> Lexer<'a> {
         &self.input[position..self.position]
     }
 
+    pub fn read_string(&mut self) -> &'a str {
+        let position: usize = self.position;
+        loop{
+            self.read_char();
+            if self.ch == DOUBLE_QUOTE || self.read_position >= self.input.len(){
+                break ;
+            }
+        }
+        // +1 to skip first '"', We do not include the final '"'
+        &self.input[position+1..self.position]
+    }
+
     pub fn peek_char(&self) -> &'a str {
         if self.read_position >= self.input.len() {
             return "";
@@ -99,6 +113,7 @@ impl<'a> Lexer<'a> {
             ")" => token = Token::new(TokenType::Rparen, self.ch),
             "{" => token = Token::new(TokenType::Lbrace, self.ch),
             "}" => token = Token::new(TokenType::Rbrace, self.ch),
+            DOUBLE_QUOTE => token = Token::new(TokenType::String, self.read_string()),
             "" => token = Token::new(TokenType::Eof, ""),
             _ => {
                 if is_letter(self.ch) {
@@ -123,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_next_token() {
-        let input = "
+        let input = r#"
         let five = 5;
         let ten = 10;
 
@@ -143,7 +158,9 @@ mod tests {
 
         10 == 10;
         10 != 9;
-        ";
+        "foobar"
+        "foo bar"
+        "#;
 
         let expected = [
             //(expected type, expected literal)
@@ -220,6 +237,8 @@ mod tests {
             (TokenType::NotEq, "!="),
             (TokenType::Int, "9"),
             (TokenType::Semicolon, ";"),
+            (TokenType::String, "foobar"),
+            (TokenType::String, "foo bar"),
             (TokenType::Eof, ""),
         ];
 

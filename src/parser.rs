@@ -60,6 +60,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::True, Parser::parse_boolean_expression);
         p.register_prefix(TokenType::Lparen, Parser::parse_grouped_expression);
         p.register_prefix(TokenType::Function, Parser::parse_function_literal);
+        p.register_prefix(TokenType::String, Parser::parse_string_literal);
 
         p.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         p.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -69,6 +70,7 @@ impl<'a> Parser<'a> {
         p.register_infix(TokenType::NotEq, Parser::parse_infix_expression);
         p.register_infix(TokenType::Lt, Parser::parse_infix_expression);
         p.register_infix(TokenType::Gt, Parser::parse_infix_expression);
+
         p.register_infix(TokenType::Lparen, Parser::parse_call_expression);
 
         // Initialize peek_token and current_token
@@ -362,6 +364,13 @@ impl<'a> Parser<'a> {
             token,
             parameters,
             body,
+        }))
+    }
+
+    fn parse_string_literal(p: &mut Parser<'a>) -> Option<ast::Expression<'a>> {
+        Some(ast::Expression::StringLiteral(ast::StringLiteral{
+            token: p.current_token,
+            value: p.current_token.literal.to_string(),
         }))
     }
 
@@ -945,4 +954,24 @@ mod tests {
             panic!("Statement is not an ExpressionStatement.");
         }
     }
+
+    #[test]
+    fn test_string_literal_expression() {
+        let input = r#""hello world""#;
+        let lexer = lexer::Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+
+        if let ast::Statement::Expression(expr) = &program.statements[0]{
+            if let ast::Expression::StringLiteral(str_lit)  = &*expr.expression {
+                assert_eq!("hello world", str_lit.value, "str_lit.value is not \"hello world\", got\"str_lit.value\"");
+            }else{
+                panic!("expr.expression is not Expression::StringLiteral")
+            }
+        }
+    }
+
+
+
 }

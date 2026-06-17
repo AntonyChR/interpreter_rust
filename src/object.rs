@@ -8,6 +8,7 @@ pub const RETURN_OBJ: &str = "RETURN";
 pub const NULL_OBJ: &str = "NULL";
 pub const ERROR_OBJ: &str = "ERROR";
 pub const FUNCTION_OBJ: &str = "FUNCTION";
+pub const STRING_OBJ: &str = "STRING";
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object<'a> {
@@ -17,6 +18,7 @@ pub enum Object<'a> {
     Null(Null),
     Error(Error),
     Function(Function<'a>),
+    String_(String_),
 }
 
 #[allow(dead_code)]
@@ -29,6 +31,7 @@ impl<'a> Object<'a> {
             Object::Null(_) => NULL_OBJ,
             Object::Error(_) => ERROR_OBJ,
             Object::Function(_) => FUNCTION_OBJ,
+            Object::String_(_) => STRING_OBJ,
         }
     }
 
@@ -36,6 +39,7 @@ impl<'a> Object<'a> {
         match self {
             Object::Integer(i) => i.value.to_string(),
             Object::Boolean(b) => b.value.to_string(),
+            Object::String_(s) => s.value.clone(),
             Object::Return(r) => format!("return {}", r.value.inspect()),
             Object::Null(_) => "null".to_string(),
             Object::Error(e) => format!("Error: {}", e.message),
@@ -60,6 +64,11 @@ pub struct Integer {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Boolean {
     pub value: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct String_{
+    pub value: String,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -10,6 +10,7 @@ pub enum TokenType {
     // Identifiers + literals
     Ident,
     Int,
+    String,
 
     // Operators
     Assign,
@@ -71,6 +72,7 @@ impl fmt::Display for TokenType {
             TokenType::If => "IF",
             TokenType::Else => "ELSE",
             TokenType::Return => "RETURN",
+            TokenType::String=> "STRING",
         };
         write!(f, "{}", s)
     }

@@ -1,8 +1,10 @@
 #![allow(dead_code)]
 
 use crate::ast;
-use crate::environment::Env;
+use crate::environment::{Env, Environment};
 use crate::object::{self as object, Error, Object};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 pub fn eval<'a>(node: ast::Node<'a>, env: Env<'a>) -> Option<Object<'a>> {
     match node {
@@ -132,14 +134,17 @@ fn eval_expression<'a>(expression: ast::Expression<'a>, env: Env<'a>) -> Option<
                 return Some(apply_function(func, args));
             }
             None
-        }
+        },
+        ast::Expression::StringLiteral(str_lit) =>{
+            Some(Object::String_(object::String_ { value: str_lit.value}))
+        },
     }
 }
 
 fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Object<'a> {
     match func {
         Object::Function(f) => {
-            let new_enclosed_env = crate::environment::Environment::new_enclosed(f.env.clone());
+            let new_enclosed_env: Rc<RefCell<Environment<'_>>> = Environment::new_enclosed(f.env.clone());
 
             // define function args as variables in the new closure
             for (i, param) in f.parameters.iter().enumerate() {
@@ -167,7 +172,7 @@ fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Object<'a> {
 }
 
 fn eval_expressions<'a>(exps: Vec<ast::Expression<'a>>, env: Env<'a>) -> Vec<Object<'a>> {
-    let mut evaluated_expressions = Vec::new();
+    let mut evaluated_expressions: Vec<Object<'_>> = Vec::new();
     for e in exps {
         let evaluated = eval(ast::Node::Expression(e), env.clone());
         if let Some(res) = evaluated {
@@ -295,15 +300,15 @@ fn eval_minus_prefix_operator_expression<'a>(right: Object<'a>) -> Option<Object
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{self as ast};
+    use crate::ast;
     use crate::evaluator::eval;
     use crate::object::Object;
     use crate::{environment, lexer, parser};
 
     fn test_eval(input: &str) -> Option<Object<'_>> {
-        let l = lexer::Lexer::new(input);
-        let mut p = parser::Parser::new(l);
-        let program = p.parse_program().unwrap();
+        let l: lexer::Lexer<'_> = lexer::Lexer::new(input);
+        let mut p: parser::Parser<'_> = parser::Parser::new(l);
+        let program: ast::Program<'_> = p.parse_program().unwrap();
         let env = environment::Environment::new();
         eval(ast::Node::Program(program), env)
     }
@@ -509,6 +514,25 @@ mod tests {
         for (input, expected) in test.iter() {
             let res = test_eval(input).expect("error evaluating input");
             test_integer_object(res, *expected, input);
+        }
+    }
+
+    #[test]
+    fn test_string_literal(){
+        let input = r#""hello world!""#;
+        let evaluated = test_eval(input).expect("Error evaluating input");
+
+        let expected_string_value = "hello world!";
+        if let Object::String_(string) = evaluated {
+            assert_eq!(
+                expected_string_value, 
+                string.value, 
+                "String has wrong value, got \"{}\" expected \"{}\"", 
+                string.value,
+                expected_string_value,
+                );
+        } else {
+            panic!("invalid Object type, got {} expected Object::String_", evaluated.object_type())                        
         }
     }
 }

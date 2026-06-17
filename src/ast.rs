@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::token::Token;
-use std::fmt;
+use std::fmt::{self, write};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node<'a> {
@@ -49,6 +49,7 @@ pub enum Expression<'a> {
     If(IfExpression<'a>),
     FunctionLiteral(FunctionLiteral<'a>),
     Call(CallExpression<'a>),
+    StringLiteral(StringLiteral<'a>)
 }
 
 impl<'a> fmt::Display for Expression<'a> {
@@ -62,6 +63,7 @@ impl<'a> fmt::Display for Expression<'a> {
             Expression::If(e) => write!(f, "{}", e),
             Expression::FunctionLiteral(e) => write!(f, "{}", e),
             Expression::Call(e) => write!(f, "{}", e),
+            Expression::StringLiteral(e) => write!(f, "{}", e),
         }
     }
 }
@@ -258,6 +260,18 @@ impl<'a> fmt::Display for CallExpression<'a> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let args: Vec<String> = self.arguments.iter().map(|a| a.to_string()).collect();
         write!(f, "{}({})", self.function, args.join(", "))
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StringLiteral<'a> {
+    pub token: Token<'a>,
+    pub value: String,
+}
+
+impl<'a> fmt::Display for StringLiteral<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+       write!(f,r#""{}""#, self.value) 
     }
 }
 
