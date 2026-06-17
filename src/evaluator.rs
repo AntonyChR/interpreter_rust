@@ -245,6 +245,10 @@ fn eval_infix_expression<'a>(operator: &'a str, left: Object<'a>, right: Object<
                 ))),
             }
         }
+
+        (Object::String_(left_string), Object::String_(right_string)) => {
+            eval_string_infix_expression(operator, left_string, right_string)
+        }
         _ => Some(Object::Error(Error::bad_operator(
             operator,
             left.object_type(),
@@ -275,6 +279,21 @@ fn eval_integer_infix_expression<'a>(operator: &str, left: &object::Integer, rig
 }
 
 #[rustfmt::skip]
+fn eval_string_infix_expression<'a>(operator: &str, left: &object::String_, right: &object::String_) -> Option<Object<'a>> {
+    if operator != "+" {
+        return Some(Object::Error(Error::bad_operator(
+            operator, 
+            object::STRING_OBJ,
+            Some(object::STRING_OBJ),
+        )));
+    }    
+
+    Some(Object::String_(object::String_ { 
+                value: format!("{}{}", left.value, right.value)
+            }))
+}
+
+#[rustfmt::skip]
 fn eval_bang_operator_expression<'a>(right: Object<'a>) -> Option<Object<'a>> {
     match right {
         Object::Boolean(b) => Some(Object::Boolean(object::Boolean { value: !b.value })),
@@ -302,7 +321,8 @@ fn eval_minus_prefix_operator_expression<'a>(right: Object<'a>) -> Option<Object
 mod tests {
     use crate::ast;
     use crate::evaluator::eval;
-    use crate::object::Object;
+    use crate::object::{self, Object};
+    use crate::token::TokenType;
     use crate::{environment, lexer, parser};
 
     fn test_eval(input: &str) -> Option<Object<'_>> {
@@ -533,6 +553,93 @@ mod tests {
                 );
         } else {
             panic!("invalid Object type, got {} expected Object::String_", evaluated.object_type())                        
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests: [(&'static str, object::Error); 10] = [
+            (
+                "5 + true;",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "5 + true; 5;",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::INTEGER_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "-true",
+                object::Error::bad_operator(&TokenType::Minus.to_string(), object::BOOLEAN_OBJ, None),
+            ),
+            (
+                " true + false;",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "5; true + false; 5",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "if (10 > 1) { true + false; }",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "if (10 > 1) {
+                    if (10 > 1) {
+                        return true + false;
+                    }
+                    return 1;
+                }
+                ",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "if (true + false) { 10 }",
+                object::Error::bad_operator(&TokenType::Plus.to_string(), object::BOOLEAN_OBJ, Some(object::BOOLEAN_OBJ)),
+            ),
+            (
+                "foobar",
+                object::Error::undefined_variable("foobar"),
+            ),
+            (
+                r#""hello" - "world""#,
+                object::Error::bad_operator(&TokenType::Minus.to_string(), object::STRING_OBJ, Some(object::STRING_OBJ)),
+            ),
+        ];
+
+        for (input, expected_error) in tests.iter() {
+            let evaluated = test_eval(input).expect("Error evaluating input");
+            let object_type: String = String::from(evaluated.object_type());
+            let value: String = String::from(evaluated.inspect());
+            
+            match evaluated {
+                Object::Error(err) => {
+                    assert_eq!(err.message, expected_error.message, "error for input: {}", input);
+                }
+                _ => panic!(
+                    "Expected an error object, but got {:?}, for input: {}\n value: {}",
+                    object_type, input, value
+                ),
+            }
+        }
+    }
+
+    #[test]
+    fn test_string_contatenation(){
+        let input = r#""hello" + " " + "world!" "#;
+        let evaluated = test_eval(input).expect("Error evaluating input");
+        let expected_string_value = "hello world!";
+        if let Object::String_(string) = evaluated {
+            assert_eq!(
+                expected_string_value, 
+                string.value, 
+                "String has wrong value, got \"{}\" expected \"{}\"", 
+                string.value,
+                expected_string_value,
+                );
+ 
+        } else {
+            panic!("invalid Object type, got {} expected Object::String_", evaluated.inspect())                        
         }
     }
 }

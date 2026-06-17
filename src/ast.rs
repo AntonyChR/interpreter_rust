@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::token::Token;
-use std::fmt::{self, write};
+use std::fmt;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Node<'a> {
