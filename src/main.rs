@@ -5,6 +5,7 @@ mod parser;
 mod repl;
 mod token;
 mod utils;
+mod builtins;
 
 mod evaluator;
 mod object;

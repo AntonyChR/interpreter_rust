@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::ast;
+use crate::builtins::builtins;
 use crate::environment::{Env, Environment};
 use crate::object::{self as object, Error, Object};
 use std::rc::Rc;
@@ -136,7 +137,7 @@ fn eval_expression<'a>(expression: ast::Expression<'a>, env: Env<'a>) -> Option<
             None
         },
         ast::Expression::StringLiteral(str_lit) =>{
-            Some(Object::String_(object::String_ { value: str_lit.value}))
+            Some(Object::new_string(str_lit.value))
         },
     }
 }
@@ -163,7 +164,8 @@ fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Object<'a> {
                 return *r.value;
             }
             evaluated
-        }
+        },
+        Object::Builtin(f) => (f.fn_)(args),
         _ => Object::Error(Error::custom(format!(
             "not a function: {}",
             func.object_type()
@@ -189,6 +191,11 @@ fn eval_identifier<'a>(identifier: ast::Identifier<'a>, env: Env<'a>) -> Option<
     if let Some(value) = env.borrow().get(identifier.value) {
         return Some(value);
     }
+
+    if let Some(builtin_fn) = builtins(identifier.value){
+        return Some(Object::Builtin(object::Builtin { fn_: builtin_fn }));
+    }
+
     Some(Object::Error(Error::undefined_variable(identifier.value)))
 }
 
@@ -321,7 +328,7 @@ fn eval_minus_prefix_operator_expression<'a>(right: Object<'a>) -> Option<Object
 mod tests {
     use crate::ast;
     use crate::evaluator::eval;
-    use crate::object::{self, Object};
+    use crate::object::{self, Object, INTEGER_OBJ};
     use crate::token::TokenType;
     use crate::{environment, lexer, parser};
 
@@ -641,5 +648,36 @@ mod tests {
         } else {
             panic!("invalid Object type, got {} expected Object::String_", evaluated.inspect())                        
         }
+    }
+
+    #[test]
+    fn test_builtin_functions(){
+        let valid_tests: [(&'static str, i64); 3] = [
+            (r#"len("")"#, 0),
+            (r#"len("four")"#, 4),
+            (r#"len("hello world")"#, 11),
+        ];
+
+        let invalid_tests: [(&'static str, object::Error); 2] = [
+            ("len(1)", object::Error::type_has_no_method(INTEGER_OBJ, "len()")),
+            (r#"len("one","two")"#, object::Error::wrong_number_of_parms(2, 1)),
+        ];
+
+        for case in valid_tests.iter() {
+            let evaluated = test_eval(case.0).expect("Error evaluating input");
+            test_integer_object(evaluated, case.1, case.0);
+        }
+
+        for case in invalid_tests.iter() {
+            let evaluated = test_eval(case.0).expect("Error evaluating input");
+
+            if let Object::Error(error) = evaluated{
+                assert_eq!(error.message, case.1.message);
+            }else{
+                panic!("expected Object::Error type, got '{}'", evaluated.object_type())
+            }
+        }
+
+
     }
 }

@@ -9,6 +9,9 @@ pub const NULL_OBJ: &str = "NULL";
 pub const ERROR_OBJ: &str = "ERROR";
 pub const FUNCTION_OBJ: &str = "FUNCTION";
 pub const STRING_OBJ: &str = "STRING";
+pub const BUILTIN_OBJ: &str = "BUILTING";
+
+pub type BuiltinFunction = fn(Vec<Object>) -> Object;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Object<'a> {
@@ -18,6 +21,7 @@ pub enum Object<'a> {
     Null(Null),
     Error(Error),
     Function(Function<'a>),
+    Builtin(Builtin),
     String_(String_),
 }
 
@@ -31,6 +35,7 @@ impl<'a> Object<'a> {
             Object::Null(_) => NULL_OBJ,
             Object::Error(_) => ERROR_OBJ,
             Object::Function(_) => FUNCTION_OBJ,
+            Object::Builtin(_) => BUILTIN_OBJ,
             Object::String_(_) => STRING_OBJ,
         }
     }
@@ -51,10 +56,24 @@ impl<'a> Object<'a> {
                     .collect::<Vec<String>>()
                     .join(", ");
                 format!("fn({}) {{\n{}\n}}", params, f.body.to_string())
-            }
+            },
+            Object::Builtin(_) => "builtin function".to_string(),
         }
     }
+    pub fn new_integer(value: i64) -> Object<'a>{
+        Object::Integer(Integer{ value:value })
+    }
+
+    pub fn new_string(value: String) -> Object<'a>{
+        Object::String_(String_{ value:value})
+    }
+
+    pub fn new_error(value: String) -> Object<'a>{
+        Object::Error(Error::custom(value))
+    }
+
 }
+
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Integer {
@@ -107,6 +126,25 @@ impl<'a> PartialEq for Function<'a> {
     }
 }
 
+#[derive(Debug)]
+pub struct Builtin{
+    pub fn_: BuiltinFunction
+}
+
+impl<'a> Clone for Builtin {
+    fn clone(&self) -> Self {
+        Self {
+            fn_: self.fn_
+        }
+    }
+}
+
+impl<'a> PartialEq for Builtin {
+    fn eq(&self, _: &Self) -> bool {
+        false
+    }
+}
+
 // define error types
 impl Error {
     pub fn type_mismatch(type_a: &str, type_b: &str) -> Self {
@@ -144,6 +182,20 @@ impl Error {
             message: format!("Undefined variable: {}", name),
         }
     }
+
+    pub fn type_has_no_method(got_type: &str, method: &str) -> Self {
+        Self {
+            message: format!("TypeError: object of type '{}' has no {}", got_type, method)
+        }
+    }
+
+    pub fn wrong_number_of_parms(got:i64, expected:i64) -> Self {
+        Self {
+            message: format!("wrong number of params, got {} expected {}",got, expected )
+        }
+    }
+
+
 
     pub fn custom(message: String) -> Self {
         Self { message }
