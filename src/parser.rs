@@ -61,6 +61,7 @@ impl<'a> Parser<'a> {
         p.register_prefix(TokenType::Lparen, Parser::parse_grouped_expression);
         p.register_prefix(TokenType::Function, Parser::parse_function_literal);
         p.register_prefix(TokenType::String, Parser::parse_string_literal);
+        p.register_prefix(TokenType::LBracket, Parser::parse_array_literal);
 
         p.register_infix(TokenType::Plus, Parser::parse_infix_expression);
         p.register_infix(TokenType::Minus, Parser::parse_infix_expression);
@@ -102,8 +103,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn get_errors(&self) -> Vec<String> {
-        self.errors.clone()
+    pub fn get_errors(&self) -> &Vec<String> {
+        &self.errors
     }
 
     fn peek_error(&mut self, token_type: TokenType) {
@@ -374,6 +375,13 @@ impl<'a> Parser<'a> {
         }))
     }
 
+    fn parse_array_literal(&mut self) -> Option<ast::Expression<'a>> {
+        let mut arr = ast::ArrayLiteral{token: self.current_token, elements: Vec::new()};
+        let elements = self.parse_expression_list(TokenType::RBracket).unwrap();
+        arr.elements = elements;
+        Some(ast::Expression::ArrayLiteral(arr))
+    }
+
     fn parse_function_parameters(&mut self) -> Vec<ast::Identifier<'a>> {
         let mut identifiers = Vec::new();
         if self.peek_token_is(TokenType::Rparen) {
@@ -399,12 +407,10 @@ impl<'a> Parser<'a> {
         identifiers
     }
 
-    fn parse_call_expression(
-        p: &mut Parser<'a>,
-        function: ast::Expression<'a>,
-    ) -> Option<ast::Expression<'a>> {
+    fn parse_call_expression(p: &mut Parser<'a>, function: ast::Expression<'a>) -> Option<ast::Expression<'a>> {
         let token = p.current_token;
-        let arguments = p.parse_call_arguments()?;
+        //let arguments = p.parse_call_arguments()?;
+        let arguments = p.parse_expression_list(TokenType::Rparen).unwrap();
         Some(ast::Expression::Call(ast::CallExpression {
             token,
             function: Box::new(function),
@@ -452,6 +458,32 @@ impl<'a> Parser<'a> {
         }
 
         block
+    }
+
+    fn parse_expression_list(&mut self, end: TokenType) -> Option<Vec<ast::Expression<'a>>> {
+        let mut list:Vec<ast::Expression<'a>> = Vec::new();
+
+        if self.peek_token_is(end){
+            self.next_token();
+            return Some(list);
+        }
+        self.next_token();
+
+        // TODO: handle None in parse_expression
+        let a:ast::Expression<'a> = self.parse_expression(Precedence::LOWEST).unwrap();
+        list.push(a);
+
+        while self.peek_token_is(TokenType::Comma){
+            self.next_token();
+            self.next_token();
+            let element:ast::Expression<'a> = self.parse_expression(Precedence::LOWEST).unwrap();
+            list.push(element);
+        }
+
+        if !self.expect_peek(end) {
+            return None
+        }
+        Some(list)
     }
 
     fn register_prefix(&mut self, token_type: TokenType, func: PrefixParseFn<'a>) {
@@ -968,6 +1000,27 @@ mod tests {
                 assert_eq!("hello world", str_lit.value, "str_lit.value is not \"hello world\", got\"str_lit.value\"");
             }else{
                 panic!("expr.expression is not Expression::StringLiteral")
+            }
+        }
+    }
+
+    #[test]
+    fn test_parsing_array_literal(){
+        let input = "[1, 2 * 2, 3 + 3]";
+        let lexer = lexer::Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program().unwrap();
+        check_parser_errors(&parser);
+
+        if let ast::Statement::Expression(expr) = &program.statements[0]{
+            if let ast::Expression::ArrayLiteral(arr_lit)  = &*expr.expression {
+                assert_eq!(3, arr_lit.elements.len(), "len(array.elements) no 3. got {}", arr_lit.elements.len());
+
+                test_integer_literal(&arr_lit.elements[0], 1);
+                test_infix_expression(&arr_lit.elements[1], PrimitiveValue::Int64(2), "*", PrimitiveValue::Int64(2));
+                test_infix_expression(&arr_lit.elements[2], PrimitiveValue::Int64(3), "+", PrimitiveValue::Int64(3));
+            }else{
+                panic!("expr.expression is not Expression::ArrayLiteral")
             }
         }
     }

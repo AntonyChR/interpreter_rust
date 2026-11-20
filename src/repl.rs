@@ -29,24 +29,20 @@ pub fn start() {
         let program = match parser.parse_program() {
             Some(p) => p,
             None => {
-                print_parser_errors(parser.get_errors());
+                if !parser.get_errors().is_empty() {
+                    print_parser_errors(parser.get_errors());
+                }
                 continue;
             }
         };
 
-        if !parser.get_errors().is_empty() {
-            print_parser_errors(parser.get_errors());
-            continue;
-        }
-
-        let evaluated = evaluator::eval(ast::Node::Program(program), env.clone());
-        if let Some(res) = evaluated {
-            println!("{}", res.inspect());
+        if let Some(evaluated)  = evaluator::eval(ast::Node::Program(program), env.clone()){
+            println!("{}", evaluated.inspect());
         }
     }
 }
 
-fn print_parser_errors(errors: Vec<String>) {
+fn print_parser_errors(errors: &Vec<String>) {
     println!(" parser errors:");
     for msg in errors.iter() {
         println!("\t{}", msg);

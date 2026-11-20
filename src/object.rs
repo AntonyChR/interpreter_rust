@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
-use crate::{ast, environment::Env};
+use crate::ast;
+use crate::environment::Env;
 
 pub const INTEGER_OBJ: &str = "INTEGER";
 pub const BOOLEAN_OBJ: &str = "BOOLEAN";
@@ -10,6 +11,7 @@ pub const ERROR_OBJ: &str = "ERROR";
 pub const FUNCTION_OBJ: &str = "FUNCTION";
 pub const STRING_OBJ: &str = "STRING";
 pub const BUILTIN_OBJ: &str = "BUILTING";
+pub const ARRAY_OBJ: &str = "ARRAY";
 
 pub type BuiltinFunction = fn(Vec<Object>) -> Object;
 
@@ -23,6 +25,7 @@ pub enum Object<'a> {
     Function(Function<'a>),
     Builtin(Builtin),
     String_(String_),
+    Array(Array<'a>),
 }
 
 #[allow(dead_code)]
@@ -37,6 +40,7 @@ impl<'a> Object<'a> {
             Object::Function(_) => FUNCTION_OBJ,
             Object::Builtin(_) => BUILTIN_OBJ,
             Object::String_(_) => STRING_OBJ,
+            Object::Array(_) => ARRAY_OBJ,
         }
     }
 
@@ -57,6 +61,14 @@ impl<'a> Object<'a> {
                     .join(", ");
                 format!("fn({}) {{\n{}\n}}", params, f.body.to_string())
             },
+            Object::Array(a) => {
+                let arr_elements = a.elements.iter()
+                    .map(|e|e.inspect())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("[{}]", arr_elements)
+            },
+
             Object::Builtin(_) => "builtin function".to_string(),
         }
     }
@@ -118,6 +130,11 @@ impl<'a> Clone for Function<'a> {
             env: self.env.clone(),
         }
     }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Array<'a> {
+    pub elements: Vec<Object<'a>>,
 }
 
 impl<'a> PartialEq for Function<'a> {

@@ -29,6 +29,8 @@ pub enum TokenType {
     Semicolon,
     Lparen,
     Rparen,
+    LBracket,
+    RBracket,
     Lbrace,
     Rbrace,
 
@@ -63,6 +65,8 @@ impl fmt::Display for TokenType {
             TokenType::Semicolon => ";",
             TokenType::Lparen => "(",
             TokenType::Rparen => ")",
+            TokenType::LBracket=> "[",
+            TokenType::RBracket=> "]",
             TokenType::Lbrace => "{",
             TokenType::Rbrace => "}",
             TokenType::Function => "FUNCTION",

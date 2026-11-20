@@ -111,6 +111,8 @@ impl<'a> Lexer<'a> {
             "," => token = Token::new(TokenType::Comma, self.ch),
             "(" => token = Token::new(TokenType::Lparen, self.ch),
             ")" => token = Token::new(TokenType::Rparen, self.ch),
+            "[" => token = Token::new(TokenType::LBracket, self.ch),
+            "]" => token = Token::new(TokenType::RBracket, self.ch),
             "{" => token = Token::new(TokenType::Lbrace, self.ch),
             "}" => token = Token::new(TokenType::Rbrace, self.ch),
             DOUBLE_QUOTE => token = Token::new(TokenType::String, self.read_string()),
@@ -160,6 +162,7 @@ mod tests {
         10 != 9;
         "foobar"
         "foo bar"
+        [1, 2];
         "#;
 
         let expected = [
@@ -239,6 +242,12 @@ mod tests {
             (TokenType::Semicolon, ";"),
             (TokenType::String, "foobar"),
             (TokenType::String, "foo bar"),
+            (TokenType::LBracket, "["),
+            (TokenType::Int, "1"),
+            (TokenType::Comma, ","),
+            (TokenType::Int, "2"),
+            (TokenType::RBracket, "]"),
+            (TokenType::Semicolon, ";"),
             (TokenType::Eof, ""),
         ];
 

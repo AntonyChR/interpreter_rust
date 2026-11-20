@@ -49,7 +49,8 @@ pub enum Expression<'a> {
     If(IfExpression<'a>),
     FunctionLiteral(FunctionLiteral<'a>),
     Call(CallExpression<'a>),
-    StringLiteral(StringLiteral<'a>)
+    StringLiteral(StringLiteral<'a>),
+    ArrayLiteral(ArrayLiteral<'a>),
 }
 
 impl<'a> fmt::Display for Expression<'a> {
@@ -64,6 +65,7 @@ impl<'a> fmt::Display for Expression<'a> {
             Expression::FunctionLiteral(e) => write!(f, "{}", e),
             Expression::Call(e) => write!(f, "{}", e),
             Expression::StringLiteral(e) => write!(f, "{}", e),
+            Expression::ArrayLiteral(e) => write!(f, "{}", e),
         }
     }
 }
@@ -203,6 +205,23 @@ impl<'a> fmt::Display for InfixExpression<'a> {
 pub struct Boolean<'a> {
     pub token: Token<'a>,
     pub value: bool,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ArrayLiteral<'a>{
+    pub token: Token<'a>,
+    pub elements: Vec<Expression<'a>>,
+}
+
+impl<'a> fmt::Display for ArrayLiteral<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let arr_elements = self.elements.iter()
+            .map(|e|e.to_string())
+            .collect::<Vec<String>>()
+            .join(", ");
+
+        write!(f, "[{}]", arr_elements)
+    }
 }
 
 impl<'a> fmt::Display for Boolean<'a> {

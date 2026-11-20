@@ -3,7 +3,7 @@
 use crate::ast;
 use crate::builtins::builtins;
 use crate::environment::{Env, Environment};
-use crate::object::{self as object, Error, Object};
+use crate::object::{self, Error, Object};
 use std::rc::Rc;
 use std::cell::RefCell;
 
@@ -136,9 +136,14 @@ fn eval_expression<'a>(expression: ast::Expression<'a>, env: Env<'a>) -> Option<
             }
             None
         },
-        ast::Expression::StringLiteral(str_lit) =>{
-            Some(Object::new_string(str_lit.value))
+        ast::Expression::ArrayLiteral(arr_lit) => {
+            let elemenst = eval_expressions(arr_lit.elements, env);
+            if elemenst.len() == 1{
+                return Some(elemenst[0].clone());
+            }
+            Some(Object::Array(object::Array { elements: elemenst }))
         },
+        ast::Expression::StringLiteral(str_lit) => Some(Object::new_string(str_lit.value)),
     }
 }
 
@@ -176,7 +181,7 @@ fn apply_function<'a>(func: Object<'a>, args: Vec<Object<'a>>) -> Object<'a> {
 fn eval_expressions<'a>(exps: Vec<ast::Expression<'a>>, env: Env<'a>) -> Vec<Object<'a>> {
     let mut evaluated_expressions: Vec<Object<'_>> = Vec::new();
     for e in exps {
-        let evaluated = eval(ast::Node::Expression(e), env.clone());
+        let evaluated: Option<Object<'_>> = eval(ast::Node::Expression(e), env.clone());
         if let Some(res) = evaluated {
             if res.object_type() == object::ERROR_OBJ {
                 return vec![res];
@@ -256,11 +261,7 @@ fn eval_infix_expression<'a>(operator: &'a str, left: Object<'a>, right: Object<
         (Object::String_(left_string), Object::String_(right_string)) => {
             eval_string_infix_expression(operator, left_string, right_string)
         }
-        _ => Some(Object::Error(Error::bad_operator(
-            operator,
-            left.object_type(),
-            Some(right.object_type()),
-        ))),
+        _ => Some(Object::Error(Error::bad_operator(operator, left.object_type(), Some(right.object_type())))),
     }
 }
 
@@ -277,27 +278,16 @@ fn eval_integer_infix_expression<'a>(operator: &str, left: &object::Integer, rig
         ">" => Some(Object::Boolean(object::Boolean{value: left_int > right_int})),
         "==" => Some(Object::Boolean(object::Boolean{value: left_int == right_int})),
         "!=" => Some(Object::Boolean(object::Boolean{value: left_int != right_int})),
-        _ => Some(Object::Error(Error::unknown_operator(
-            operator,
-            object::INTEGER_OBJ,
-            Some(object::INTEGER_OBJ),
-        ))),
+        _ => Some(Object::Error(Error::unknown_operator(operator, object::INTEGER_OBJ, Some(object::INTEGER_OBJ)))),
     }
 }
 
 #[rustfmt::skip]
 fn eval_string_infix_expression<'a>(operator: &str, left: &object::String_, right: &object::String_) -> Option<Object<'a>> {
     if operator != "+" {
-        return Some(Object::Error(Error::bad_operator(
-            operator, 
-            object::STRING_OBJ,
-            Some(object::STRING_OBJ),
-        )));
+        return Some(Object::Error(Error::bad_operator(operator, object::STRING_OBJ, Some(object::STRING_OBJ))));
     }    
-
-    Some(Object::String_(object::String_ { 
-                value: format!("{}{}", left.value, right.value)
-            }))
+    Some(Object::String_(object::String_ {value: format!("{}{}", left.value, right.value)}))
 }
 
 #[rustfmt::skip]
@@ -312,11 +302,7 @@ fn eval_bang_operator_expression<'a>(right: Object<'a>) -> Option<Object<'a>> {
 
 fn eval_minus_prefix_operator_expression<'a>(right: Object<'a>) -> Option<Object<'a>> {
     if right.object_type() != object::INTEGER_OBJ {
-        return Some(Object::Error(Error::bad_operator(
-            "-",
-            right.object_type(),
-            None,
-        )));
+        return Some(Object::Error(Error::bad_operator("-", right.object_type(), None)));
     }
     match right {
         Object::Integer(i) => Some(Object::Integer(object::Integer { value: -i.value })),
